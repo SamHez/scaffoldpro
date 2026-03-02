@@ -1,5 +1,5 @@
-import { ReactNode, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
@@ -17,17 +17,23 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
 
-interface DashboardLayoutProps {
-  children: ReactNode;
-  activeTab?: string;
-}
-
-export const DashboardLayout = ({ children, activeTab }: DashboardLayoutProps) => {
+export const DashboardLayout = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  const getActiveTab = () => {
+    const path = location.pathname;
+    if (path === "/dashboard") return "rentals";
+    if (path === "/dashboard/add") return "add";
+    if (path === "/dashboard/audit") return "audit";
+    return "";
+  };
+
+  const activeTab = getActiveTab();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -185,7 +191,7 @@ export const DashboardLayout = ({ children, activeTab }: DashboardLayoutProps) =
             </div>
           </header>
           <main className="flex-1 overflow-auto p-4 md:p-6">
-            {children}
+            <Outlet />
           </main>
         </div>
       </div>

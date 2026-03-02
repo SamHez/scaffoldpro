@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Package, ArrowLeft, AlertCircle, Search } from "lucide-react";
+import { Package, ArrowLeft, AlertCircle, Search, FileText } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,9 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRental, setSelectedRental] = useState<any>(null);
   const [returnData, setReturnData] = useState<any>({});
+  const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [selectedRentalForDetails, setSelectedRentalForDetails] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -56,11 +59,24 @@ const Dashboard = () => {
   };
 
   const handleReturnRental = async (rentalId: string) => {
+    const rental = rentals.find(r => r.id === rentalId);
+    if (!rental) return;
+
     const { error } = await supabase
       .from("rentals")
       .update({
         status: "RETURNED",
-        returned_date: new Date().toISOString()
+        returned_date: new Date().toISOString(),
+        returned_num_scaffoldings: rental.num_scaffoldings,
+        returned_num_chopsticks: rental.num_chopsticks,
+        returned_plates: rental.plates,
+        returned_timbers: rental.timbers,
+        returned_connectors: rental.connectors,
+        returned_legs: rental.legs,
+        returned_tubes_6m: rental.tubes_6m,
+        returned_tubes_4m: rental.tubes_4m,
+        returned_tubes_3m: rental.tubes_3m,
+        returned_tubes_1m: rental.tubes_1m,
       })
       .eq("id", rentalId);
 
@@ -87,11 +103,14 @@ const Dashboard = () => {
 
   const filteredRentals = rentals.filter(rental => {
     const searchLower = searchQuery.toLowerCase();
+    const client = rental.clients;
+    if (!client) return false;
+
     return (
-      rental.clients.name.toLowerCase().includes(searchLower) ||
-      (rental.clients.nickname && rental.clients.nickname.toLowerCase().includes(searchLower)) ||
-      rental.clients.phone.includes(searchQuery) ||
-      rental.clients.id_tin_no.toLowerCase().includes(searchLower)
+      (client.name?.toLowerCase().includes(searchLower)) ||
+      (client.nickname?.toLowerCase().includes(searchLower)) ||
+      (client.phone?.includes(searchQuery)) ||
+      (client.id_tin_no?.toLowerCase().includes(searchLower))
     );
   });
 
@@ -102,6 +121,19 @@ const Dashboard = () => {
     if (!selectedRental) return;
 
     try {
+      // Check if all items are returned
+      const isComplete =
+        (returnData.returned_num_scaffoldings || 0) >= selectedRental.num_scaffoldings &&
+        (returnData.returned_num_chopsticks || 0) >= selectedRental.num_chopsticks &&
+        (returnData.returned_plates || 0) >= selectedRental.plates &&
+        (returnData.returned_timbers || 0) >= selectedRental.timbers &&
+        (returnData.returned_connectors || 0) >= selectedRental.connectors &&
+        (returnData.returned_legs || 0) >= selectedRental.legs &&
+        (returnData.returned_tubes_6m || 0) >= (selectedRental.tubes_6m || 0) &&
+        (returnData.returned_tubes_4m || 0) >= (selectedRental.tubes_4m || 0) &&
+        (returnData.returned_tubes_3m || 0) >= (selectedRental.tubes_3m || 0) &&
+        (returnData.returned_tubes_1m || 0) >= (selectedRental.tubes_1m || 0);
+
       const { error } = await supabase
         .from("rentals")
         .update({
@@ -118,6 +150,7 @@ const Dashboard = () => {
           total_paid: returnData.total_paid || 0,
           balance_due: returnData.balance_due || 0,
           returned_date: returnData.returned_date || new Date().toISOString(),
+          status: isComplete ? "RETURNED" : "RENTED",
         })
         .eq("id", selectedRental.id);
 
@@ -125,9 +158,10 @@ const Dashboard = () => {
 
       toast({
         title: "Success",
-        description: "Partial return recorded successfully",
+        description: isComplete ? "Rental completed and returned" : "Partial return recorded successfully",
       });
 
+      setIsReturnDialogOpen(false);
       setSelectedRental(null);
       setReturnData({});
       fetchRentals();
@@ -147,41 +181,57 @@ const Dashboard = () => {
       rental.returned_plates > 0;
 
     return (
-      <Card className={overdue ? "border-destructive" : ""}>
+      <Card className={overdue ? "border-destructive border-2 bg-destructive/5" : ""}>
         <CardHeader>
           <div className="flex items-start justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5 text-primary" />
-                {rental.clients.nickname || rental.clients.name}
-                {overdue && <AlertCircle className="h-5 w-5 text-destructive" />}
+                <span className={overdue ? "text-destructive font-bold" : ""}>
+                  {rental.clients.nickname || rental.clients.name}
+                </span>
+                {overdue && <AlertCircle className="h-5 w-5 text-destructive fill-destructive/10" />}
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 {rental.clients.phone} • {rental.clients.id_tin_no}
               </p>
-              {overdue && (
-                <Badge variant="destructive" className="mt-2">
-                  OVERDUE
-                </Badge>
-              )}
-              {hasPartialReturn && (
-                <Badge variant="outline" className="mt-2 ml-2">
-                  Partial Return
-                </Badge>
-              )}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {overdue && (
+                  <Badge variant="destructive" className="animate-pulse">
+                    OVERDUE / UNPAID
+                  </Badge>
+                )}
+                {hasPartialReturn && (
+                  <Badge variant="outline">
+                    Partial Return
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="flex flex-col gap-2">
               <Badge variant={rental.status === "RENTED" ? "default" : "secondary"}>
                 {rental.status}
               </Badge>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setSelectedRentalForDetails(rental);
+                  setIsDetailsDialogOpen(true);
+                }}
+              >
+                <Search className="h-4 w-4 mr-1" />
+                Details
+              </Button>
               {showReturnButton && (
-                <Dialog>
+                <Dialog open={isReturnDialogOpen && selectedRental?.id === rental.id} onOpenChange={setIsReturnDialogOpen}>
                   <DialogTrigger asChild>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => {
                         setSelectedRental(rental);
+                        setIsReturnDialogOpen(true);
                         setReturnData({
                           returned_num_scaffoldings: rental.returned_num_scaffoldings || 0,
                           returned_num_chopsticks: rental.returned_num_chopsticks || 0,
@@ -435,11 +485,11 @@ const Dashboard = () => {
             </div>
             <div>
               <p className="text-muted-foreground">Expected Days</p>
-              <p className="font-semibold">{rental.expected_days}</p>
+              <p className={`font-semibold ${overdue ? "text-destructive" : ""}`}>{rental.expected_days}</p>
             </div>
             <div>
               <p className="text-muted-foreground">Paid Days</p>
-              <p className="font-semibold">{rental.paid_days}</p>
+              <p className={`font-semibold ${overdue ? "text-destructive" : ""}`}>{rental.paid_days}</p>
             </div>
             {rental.total_paid > 0 && (
               <div>
@@ -507,75 +557,201 @@ const Dashboard = () => {
   };
 
   return (
-    <DashboardLayout activeTab="rentals">
-      <div className="p-0 sm:p-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">View and manage all scaffolding rentals</p>
-        </div>
-
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name, nickname, phone, or ID/TIN..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        <Tabs defaultValue="rented" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="rented">
-              Rented ({rentedItems.length})
-            </TabsTrigger>
-            <TabsTrigger value="returned">
-              Returned ({returnedItems.length})
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="rented" className="space-y-4">
-            {loading ? (
-              <p className="text-center text-muted-foreground py-8">Loading...</p>
-            ) : rentedItems.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No rented items</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {rentedItems.map((rental) => (
-                  <RentalCard key={rental.id} rental={rental} showReturnButton={true} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="returned" className="space-y-4">
-            {loading ? (
-              <p className="text-center text-muted-foreground py-8">Loading...</p>
-            ) : returnedItems.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No returned items</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {returnedItems.map((rental) => (
-                  <RentalCard key={rental.id} rental={rental} showReturnButton={false} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+    <div className="p-0 sm:p-4">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">View and manage all scaffolding rentals</p>
       </div>
-    </DashboardLayout>
+
+      <div className="mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, nickname, phone, or ID/TIN..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      <Tabs defaultValue="rented" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="rented">
+            Rented ({rentedItems.length})
+          </TabsTrigger>
+          <TabsTrigger value="returned">
+            Returned ({returnedItems.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="rented" className="space-y-4">
+          {loading ? (
+            <p className="text-center text-muted-foreground py-8">Loading...</p>
+          ) : rentedItems.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No rented items</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {rentedItems.map((rental) => (
+                <RentalCard key={rental.id} rental={rental} showReturnButton={true} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="returned" className="space-y-4">
+          {loading ? (
+            <p className="text-center text-muted-foreground py-8">Loading...</p>
+          ) : returnedItems.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No returned items</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {returnedItems.map((rental) => (
+                <RentalCard key={rental.id} rental={rental} showReturnButton={false} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              <Package className="h-6 w-6 text-primary" />
+              Rental Details - {selectedRentalForDetails?.clients?.nickname || selectedRentalForDetails?.clients?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedRentalForDetails && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4">
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 border-b pb-1">Client Information</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <p className="text-muted-foreground">Full Name:</p>
+                    <p className="font-medium">{selectedRentalForDetails.clients.name}</p>
+                    <p className="text-muted-foreground">Nickname/ID:</p>
+                    <p className="font-medium">{selectedRentalForDetails.clients.nickname || "N/A"}</p>
+                    <p className="text-muted-foreground">Phone:</p>
+                    <p className="font-medium">{selectedRentalForDetails.clients.phone}</p>
+                    <p className="text-muted-foreground">ID/TIN No:</p>
+                    <p className="font-medium">{selectedRentalForDetails.clients.id_tin_no}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 border-b pb-1">Item Breakdown</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <p className="text-muted-foreground">Scaffoldings:</p>
+                    <p className="font-medium">{selectedRentalForDetails.num_scaffoldings} ({selectedRentalForDetails.returned_num_scaffoldings || 0} returned)</p>
+                    <p className="text-muted-foreground">Chopsticks:</p>
+                    <p className="font-medium">{selectedRentalForDetails.num_chopsticks} ({selectedRentalForDetails.returned_num_chopsticks || 0} returned)</p>
+                    <p className="text-muted-foreground">Plates:</p>
+                    <p className="font-medium">{selectedRentalForDetails.plates} ({selectedRentalForDetails.returned_plates || 0} returned)</p>
+                    <p className="text-muted-foreground">Timbers:</p>
+                    <p className="font-medium">{selectedRentalForDetails.timbers} ({selectedRentalForDetails.returned_timbers || 0} returned)</p>
+                    <p className="text-muted-foreground">Connectors:</p>
+                    <p className="font-medium">{selectedRentalForDetails.connectors} ({selectedRentalForDetails.returned_connectors || 0} returned)</p>
+                    <p className="text-muted-foreground">Legs:</p>
+                    <p className="font-medium">{selectedRentalForDetails.legs} ({selectedRentalForDetails.returned_legs || 0} returned)</p>
+                    {selectedRentalForDetails.tubes_6m > 0 && (
+                      <><p className="text-muted-foreground">6m Tubes:</p><p className="font-medium">{selectedRentalForDetails.tubes_6m} ({selectedRentalForDetails.returned_tubes_6m || 0} returned)</p></>
+                    )}
+                    {selectedRentalForDetails.tubes_4m > 0 && (
+                      <><p className="text-muted-foreground">4m Tubes:</p><p className="font-medium">{selectedRentalForDetails.tubes_4m} ({selectedRentalForDetails.returned_tubes_4m || 0} returned)</p></>
+                    )}
+                    {selectedRentalForDetails.tubes_3m > 0 && (
+                      <><p className="text-muted-foreground">3m Tubes:</p><p className="font-medium">{selectedRentalForDetails.tubes_3m} ({selectedRentalForDetails.returned_tubes_3m || 0} returned)</p></>
+                    )}
+                    {selectedRentalForDetails.tubes_1m > 0 && (
+                      <><p className="text-muted-foreground">1m Tubes:</p><p className="font-medium">{selectedRentalForDetails.tubes_1m} ({selectedRentalForDetails.returned_tubes_1m || 0} returned)</p></>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 border-b pb-1">Payment & Status</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <p className="text-muted-foreground">Status:</p>
+                    <Badge variant={selectedRentalForDetails.status === "RENTED" ? "default" : "secondary"}>
+                      {selectedRentalForDetails.status}
+                    </Badge>
+                    <p className="text-muted-foreground">Total Paid:</p>
+                    <p className="font-medium text-success">{selectedRentalForDetails.total_paid} FRW</p>
+                    <p className="text-muted-foreground">Balance Due:</p>
+                    <p className={`font-medium ${selectedRentalForDetails.balance_due > 0 ? "text-destructive" : "text-success"}`}>
+                      {selectedRentalForDetails.balance_due} FRW
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 border-b pb-1">Uploaded Document</h3>
+                  {selectedRentalForDetails.document_image_url ? (
+                    <div className="mt-2 rounded-lg border overflow-hidden bg-muted">
+                      <img
+                        src={selectedRentalForDetails.document_image_url}
+                        alt="Rental Document"
+                        className="w-full h-auto object-contain max-h-[400px]"
+                        onError={(e) => {
+                          (e.target as any).style.display = 'none';
+                        }}
+                      />
+                      <div className="p-4 flex items-center justify-between bg-background border-t">
+                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                          {selectedRentalForDetails.document_image_url.split('/').pop()}
+                        </span>
+                        <Button size="sm" variant="outline" asChild>
+                          <a href={selectedRentalForDetails.document_image_url} target="_blank" rel="noopener noreferrer">
+                            Open Original
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed rounded-lg bg-muted/50">
+                      <FileText className="h-10 w-10 text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">No document uploaded</p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 border-b pb-1">Logistics</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <p className="text-muted-foreground">Pickup Person:</p>
+                    <p className="font-medium">{selectedRentalForDetails.pickup_person_name}</p>
+                    <p className="text-muted-foreground">Vehicle:</p>
+                    <p className="font-medium">{selectedRentalForDetails.vehicle_type} {selectedRentalForDetails.plate_number && `(${selectedRentalForDetails.plate_number})`}</p>
+                    <p className="text-muted-foreground">Rented Date:</p>
+                    <p className="font-medium">{format(new Date(selectedRentalForDetails.rented_date), "PPP")}</p>
+                    {selectedRentalForDetails.returned_date && (
+                      <>
+                        <p className="text-muted-foreground">Returned Date:</p>
+                        <p className="font-medium">{format(new Date(selectedRentalForDetails.returned_date), "PPP")}</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
