@@ -101,9 +101,12 @@ export const DashboardLayout = ({ children, activeTab }: DashboardLayoutProps) =
       <div className="flex min-h-screen w-full bg-background">
         <Sidebar collapsible="icon">
           <SidebarHeader className="p-4 border-b border-sidebar-border">
-            <div className="flex items-center space-x-2">
-              <Building2 className="h-8 w-8 text-sidebar-primary" />
-              <h1 className="text-xl font-bold truncate">ScaffoldPro</h1>
+            <div className="flex items-center">
+              <img
+                src="/logo-w.png"
+                alt="ScaffoldPro"
+                className="h-8 w-auto"
+              />
             </div>
           </SidebarHeader>
 
@@ -173,9 +176,12 @@ export const DashboardLayout = ({ children, activeTab }: DashboardLayoutProps) =
         <div className="flex-1 flex flex-col min-w-0">
           <header className="h-16 border-b border-border flex items-center px-4 bg-background sticky top-0 z-30">
             <SidebarTrigger className="mr-4" />
-            <div className="lg:hidden flex items-center space-x-2">
-              <Building2 className="h-6 w-6 text-primary" />
-              <span className="font-bold">ScaffoldPro</span>
+            <div className="lg:hidden flex items-center">
+              <img
+                src="/logo-w.png"
+                alt="ScaffoldPro"
+                className="h-6 w-auto brightness-0"
+              />
             </div>
           </header>
           <main className="flex-1 overflow-auto p-4 md:p-6">

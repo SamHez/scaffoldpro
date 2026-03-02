@@ -20,18 +20,17 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-background">
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-primary rounded-2xl mb-6">
-            <Building2 className="h-12 w-12 text-primary-foreground" />
-          </div>
-          <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-4">
-            ScaffoldPro
-          </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+        <div className="text-center mb-16 px-4">
+          <img
+            src="/logo-h.png"
+            alt="ScaffoldPro"
+            className="h-24 md:h-32 mx-auto mb-8 drop-shadow-xl"
+          />
+          <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-2xl mx-auto font-medium">
             Professional scaffolding rental management system for your business
           </p>
-          <Button 
-            size="lg" 
+          <Button
+            size="lg"
             onClick={() => navigate("/auth")}
             className="text-lg px-8"
           >

@@ -17,41 +17,32 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 216 28% 17%;
 
-    --primary: 215 75% 50%;
+    --primary: 161 94% 30%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 16% 93%;
+    --secondary: 216 12% 92%;
     --secondary-foreground: 216 28% 17%;
 
-    --muted: 210 16% 93%;
-    --muted-foreground: 215 14% 45%;
+    --muted: 216 12% 92%;
+    --muted-foreground: 216 15% 45%;
 
-    --accent: 28 90% 55%;
+    --accent: 161 94% 20%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    --border: 216 20% 90%;
+    --input: 216 20% 90%;
+    --ring: 161 94% 30%;
 
-    --border: 214 20% 88%;
-    --input: 214 20% 88%;
-    --ring: 215 75% 50%;
-
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
-    
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-
-    --radius: 0.5rem;
+    --radius: 0.6rem;
 
     --sidebar-background: 216 28% 17%;
     --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 215 75% 50%;
+    --sidebar-primary: 161 94% 30%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 75% 40%;
+    --sidebar-accent: 216 25% 25%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 216 20% 25%;
-    --sidebar-ring: 215 75% 50%;
+    --sidebar-ring: 161 94% 30%;
   }
 
   .dark {
