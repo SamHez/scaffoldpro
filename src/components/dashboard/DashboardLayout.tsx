@@ -1,10 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { Building2, LogOut, Plus, Users, FileText, Menu } from "lucide-react";
+import { Building2, LogOut, Plus, Users, FileText, Menu, Search, User as UserIcon, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -21,44 +31,59 @@ export const DashboardLayout = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-
-  const getActiveTab = () => {
-    const path = location.pathname;
-    if (path === "/dashboard") return "rentals";
-    if (path === "/dashboard/add") return "add";
-    if (path === "/dashboard/audit") return "audit";
-    return "";
-  };
-
-  const activeTab = getActiveTab();
+  const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-          }, 0);
-        }
+    // Scroll the specific main container and the window to top on route change
+    const scrollToTop = () => {
+      if (mainRef.current) {
+        mainRef.current.scrollTop = 0;
       }
-    );
+      window.scrollTo(0, 0);
+    };
+
+    // Immediate scroll
+    scrollToTop();
+
+    // Backup scroll after a tiny delay to ensure heavy pages also reset
+    const timeoutId = setTimeout(scrollToTop, 10);
+    return () => clearTimeout(timeoutId);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    console.log("DashboardLayout: Initializing auth...");
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("DashboardLayout: Session fetched:", session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
+      setIsLoadingAuth(false);
 
       if (!session) {
+        console.log("DashboardLayout: No session, redirecting...");
         navigate("/");
       } else {
         fetchProfile(session.user.id);
       }
     });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log("DashboardLayout: Auth state changed:", event, session?.user?.id);
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoadingAuth(false);
+
+        if (session?.user) {
+          fetchProfile(session.user.id);
+        }
+      }
+    );
 
     return () => subscription.unsubscribe();
   }, [navigate]);
@@ -94,7 +119,34 @@ export const DashboardLayout = () => {
     }
   };
 
-  if (!user) {
+  const getActiveTab = () => {
+    const path = location.pathname;
+    if (path === "/dashboard") return "rentals";
+    if (path === "/dashboard/add") return "add";
+    if (path === "/dashboard/audit") return "audit";
+    return "";
+  };
+
+  const getPageTitle = () => {
+    const path = location.pathname;
+    if (path === "/dashboard") return "Dashboard";
+    if (path === "/dashboard/add") return "Add Rental";
+    if (path === "/dashboard/audit") return "Audit Log";
+    return "ScaffoldPro";
+  };
+
+  const activeTab = getActiveTab();
+  const pageTitle = getPageTitle();
+
+  if (isLoadingAuth) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user && !isLoadingAuth) {
     return null;
   }
 
@@ -111,7 +163,7 @@ export const DashboardLayout = () => {
               <img
                 src="/logo-w.png"
                 alt="ScaffoldPro"
-                className="h-8 w-auto"
+                className="h-8 w-auto px-2"
               />
             </div>
           </SidebarHeader>
@@ -157,18 +209,12 @@ export const DashboardLayout = () => {
             </SidebarMenu>
           </SidebarContent>
 
-          <SidebarFooter className="p-4 border-t border-sidebar-border space-y-4">
-            <div className="p-3 bg-sidebar-accent rounded-lg overflow-hidden">
-              <p className="text-sm font-medium truncate">{profile?.full_name}</p>
-              <p className="text-xs text-sidebar-accent-foreground/70 truncate">
-                {profile?.user_roles?.[0]?.role || "Employee"}
-              </p>
-            </div>
+          <SidebarFooter className="p-4 border-t border-sidebar-border mt-auto">
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={handleLogout}
-                  className="text-sidebar-foreground hover:bg-sidebar-accent"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   tooltip="Logout"
                 >
                   <LogOut className="h-4 w-4" />
@@ -180,18 +226,85 @@ export const DashboardLayout = () => {
         </Sidebar>
 
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-16 border-b border-border flex items-center px-4 bg-background sticky top-0 z-30">
-            <SidebarTrigger className="mr-4" />
-            <div className="lg:hidden flex items-center">
-              <img
-                src="/logo-w.png"
-                alt="ScaffoldPro"
-                className="h-6 w-auto brightness-0"
-              />
+          <header className="h-16 border-b border-border flex items-center justify-between px-4 bg-background sticky top-0 z-30">
+            <div className="flex items-center gap-4 flex-1">
+              <SidebarTrigger />
+              <div className="hidden md:block">
+                <h1 className="text-xl font-bold text-foreground">{pageTitle}</h1>
+              </div>
+
+              <div className="flex-1 max-w-md relative hidden sm:block mx-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search everything..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-9 bg-muted/50 border-none focus-visible:ring-1"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {isCEOorCOO && (
+                <Button
+                  size="sm"
+                  className="hidden md:flex gap-2"
+                  onClick={() => navigate("/dashboard/add")}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Rental
+                </Button>
+              )}
+
+              <Button variant="ghost" size="icon" className="text-muted-foreground hidden">
+                <Bell className="h-5 w-5" />
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 overflow-hidden ml-2">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src="" alt={profile?.full_name} />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {profile?.full_name?.charAt(0) || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{profile?.full_name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {profile?.user_roles?.[0]?.role || "Employee"}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/dashboard")}>
+                    <Building2 className="mr-2 h-4 w-4" />
+                    <span>My Dashboard</span>
+                  </DropdownMenuItem>
+                  {isCEOorCOO && (
+                    <DropdownMenuItem onClick={() => navigate("/dashboard/add")}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      <span>New Rental</span>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
-          <main className="flex-1 overflow-auto p-4 md:p-6">
-            <Outlet />
+
+          <main ref={mainRef} className="flex-1 overflow-auto bg-muted/20">
+            <div className="p-4 md:p-8 max-w-7xl mx-auto">
+              <Outlet context={{ searchQuery, setSearchQuery }} />
+            </div>
           </main>
         </div>
       </div>

@@ -1,48 +1,61 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Package, ArrowLeft, AlertCircle, Search, FileText } from "lucide-react";
+import { Package, ArrowLeft, AlertCircle, Search, FileText, Trash2, Warehouse, Layers, CheckCircle2, Plus } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { formatCurrency, cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Dashboard = () => {
   const [rentals, setRentals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRental, setSelectedRental] = useState<any>(null);
-  const [returnData, setReturnData] = useState<any>({});
+  const [selectedRental, setSelectedRental] = useState<any | null>(null);
+  const [returnData, setReturnData] = useState<Record<string, any>>({});
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-  const [selectedRentalForDetails, setSelectedRentalForDetails] = useState<any>(null);
+  const [selectedRentalForDetails, setSelectedRentalForDetails] = useState<any | null>(null);
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [rentalToDelete, setRentalToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchRentals();
+  const fetchInventory = React.useCallback(async () => {
+    const { data, error } = await supabase
+      .from("inventory")
+      .select("*")
+      .order("item_name");
+
+    if (error) {
+      console.error("Error fetching inventory:", error);
+    } else {
+      setInventory(data || []);
+    }
   }, []);
 
-  const fetchRentals = async () => {
+  const fetchRentals = React.useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("rentals")
       .select(`
         *,
-        clients (
-          id,
-          name,
-          nickname,
-          phone,
-          id_tin_no
-        ),
-        profiles!rentals_created_by_fkey (
-          full_name
-        )
+        clients (*),
+        profiles (*)
       `)
       .order("created_at", { ascending: false });
 
@@ -56,6 +69,37 @@ const Dashboard = () => {
       setRentals(data || []);
     }
     setLoading(false);
+  }, [toast]);
+
+  useEffect(() => {
+    fetchRentals();
+    fetchInventory();
+  }, [fetchRentals, fetchInventory]);
+
+  const handleDeleteRental = async (rentalId: string) => {
+    setIsDeleting(true);
+    const { error } = await supabase
+      .from("rentals")
+      .delete()
+      .eq("id", rentalId);
+
+    setIsDeleting(false);
+    setRentalToDelete(null);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete rental",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Rental deleted successfully",
+      });
+      fetchRentals();
+      fetchInventory();
+    }
   };
 
   const handleReturnRental = async (rentalId: string) => {
@@ -83,7 +127,7 @@ const Dashboard = () => {
     if (error) {
       toast({
         title: "Error",
-        description: "Failed to update rental status",
+        description: "Failed to update rental",
         variant: "destructive",
       });
     } else {
@@ -92,47 +136,21 @@ const Dashboard = () => {
         description: "Rental marked as returned",
       });
       fetchRentals();
+      fetchInventory();
     }
   };
-
-  const isOverdue = (rental: any) => {
-    if (rental.status !== "RENTED") return false;
-    const daysSinceRented = differenceInDays(new Date(), new Date(rental.rented_date));
-    return daysSinceRented > rental.expected_days || daysSinceRented > rental.paid_days;
-  };
-
-  const filteredRentals = rentals.filter(rental => {
-    const searchLower = searchQuery.toLowerCase();
-    const client = rental.clients;
-    if (!client) return false;
-
-    return (
-      (client.name?.toLowerCase().includes(searchLower)) ||
-      (client.nickname?.toLowerCase().includes(searchLower)) ||
-      (client.phone?.includes(searchQuery)) ||
-      (client.id_tin_no?.toLowerCase().includes(searchLower))
-    );
-  });
-
-  const rentedItems = filteredRentals.filter(r => r.status === "RENTED");
-  const returnedItems = filteredRentals.filter(r => r.status === "RETURNED");
 
   const handlePartialReturn = async () => {
     if (!selectedRental) return;
 
     try {
-      // Check if all items are returned
       const isComplete =
         (returnData.returned_num_scaffoldings || 0) >= selectedRental.num_scaffoldings &&
         (returnData.returned_num_chopsticks || 0) >= selectedRental.num_chopsticks &&
         (returnData.returned_plates || 0) >= selectedRental.plates &&
         (returnData.returned_timbers || 0) >= selectedRental.timbers &&
         (returnData.returned_connectors || 0) >= selectedRental.connectors &&
-        (returnData.returned_legs || 0) >= selectedRental.legs &&
-        (returnData.returned_tubes_6m || 0) >= (selectedRental.tubes_6m || 0) &&
-        (returnData.returned_tubes_4m || 0) >= (selectedRental.tubes_4m || 0) &&
-        (returnData.returned_tubes_3m || 0) >= (selectedRental.tubes_3m || 0) &&
-        (returnData.returned_tubes_1m || 0) >= (selectedRental.tubes_1m || 0);
+        (returnData.returned_legs || 0) >= selectedRental.legs;
 
       const { error } = await supabase
         .from("rentals")
@@ -165,258 +183,106 @@ const Dashboard = () => {
       setSelectedRental(null);
       setReturnData({});
       fetchRentals();
-    } catch (error: any) {
+      fetchInventory();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "An unexpected error occurred";
       toast({
         title: "Error",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     }
   };
 
+  const isOverdue = (rental: {
+    status: string;
+    balance_due?: number;
+    rented_date: string;
+    expected_days?: number;
+  }) => {
+    if (rental.status === "RETURNED") return false;
+    const balanceDue = rental.balance_due || 0;
+    if (balanceDue > 0) return true;
+
+    const rentedDate = new Date(rental.rented_date);
+    const expectedDays = rental.expected_days || 0;
+    const today = new Date();
+    const daysPassed = differenceInDays(today, rentedDate);
+
+    return daysPassed > expectedDays;
+  };
+
   const RentalCard = ({ rental, showReturnButton }: { rental: any; showReturnButton: boolean }) => {
     const overdue = isOverdue(rental);
-    const hasPartialReturn = rental.returned_num_scaffoldings > 0 ||
-      rental.returned_num_chopsticks > 0 ||
-      rental.returned_plates > 0;
+    const hasPartialReturn = (rental.returned_num_scaffoldings || 0) > 0 ||
+      (rental.returned_num_chopsticks || 0) > 0 ||
+      (rental.returned_plates || 0) > 0;
 
     return (
-      <Card className={overdue ? "border-destructive border-2 bg-destructive/5" : ""}>
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
+      <Card className={cn("transition-all duration-200", overdue ? "border-destructive border-2 bg-destructive/5" : "border-sidebar-border shadow-sm")}>
+        <CardHeader className="pb-2">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Package className={cn("h-5 w-5", overdue ? "text-destructive" : "text-primary")} />
                 <span className={overdue ? "text-destructive font-bold" : ""}>
-                  {rental.clients.nickname || rental.clients.name}
+                  {rental.clients?.nickname || rental.clients?.name || "Client"}
                 </span>
-                {overdue && <AlertCircle className="h-5 w-5 text-destructive fill-destructive/10" />}
+                {overdue && <AlertCircle className="h-4 w-4 text-destructive fill-destructive/10" />}
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                {rental.clients.phone} • {rental.clients.id_tin_no}
+              <p className="text-xs text-muted-foreground mt-1">
+                {rental.clients?.phone} • {rental.clients?.id_tin_no}
               </p>
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Badge variant={rental.status === "RENTED" ? "default" : "secondary"} className="text-[10px]">
+                  {rental.status}
+                </Badge>
                 {overdue && (
-                  <Badge variant="destructive" className="animate-pulse">
+                  <Badge variant="destructive" className="animate-pulse text-[10px]">
                     OVERDUE / UNPAID
                   </Badge>
                 )}
                 {hasPartialReturn && (
-                  <Badge variant="outline">
+                  <Badge variant="outline" className="text-[10px]">
                     Partial Return
                   </Badge>
                 )}
               </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <Badge variant={rental.status === "RENTED" ? "default" : "secondary"}>
-                {rental.status}
-              </Badge>
+            <div className="flex flex-col gap-1.5 shrink-0">
               <Button
                 size="sm"
                 variant="ghost"
+                className="h-8 text-xs"
                 onClick={() => {
                   setSelectedRentalForDetails(rental);
                   setIsDetailsDialogOpen(true);
                 }}
               >
-                <Search className="h-4 w-4 mr-1" />
+                <Search className="h-3.5 w-3.5 mr-1" />
                 Details
               </Button>
-              {showReturnButton && (
-                <Dialog open={isReturnDialogOpen && selectedRental?.id === rental.id} onOpenChange={setIsReturnDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedRental(rental);
-                        setIsReturnDialogOpen(true);
-                        setReturnData({
-                          returned_num_scaffoldings: rental.returned_num_scaffoldings || 0,
-                          returned_num_chopsticks: rental.returned_num_chopsticks || 0,
-                          returned_plates: rental.returned_plates || 0,
-                          returned_timbers: rental.returned_timbers || 0,
-                          returned_connectors: rental.returned_connectors || 0,
-                          returned_legs: rental.returned_legs || 0,
-                          returned_tubes_6m: rental.returned_tubes_6m || 0,
-                          returned_tubes_4m: rental.returned_tubes_4m || 0,
-                          returned_tubes_3m: rental.returned_tubes_3m || 0,
-                          returned_tubes_1m: rental.returned_tubes_1m || 0,
-                          total_paid: rental.total_paid || 0,
-                          balance_due: rental.balance_due || 0,
-                          returned_date: rental.returned_date || new Date().toISOString().split('T')[0],
-                        });
-                      }}
-                    >
-                      <Package className="h-4 w-4 mr-1" />
-                      Partial Return
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Record Partial Return - {rental.clients.name}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Return Date</Label>
-                        <Input
-                          type="date"
-                          value={returnData.returned_date || new Date().toISOString().split('T')[0]}
-                          onChange={(e) => setReturnData({ ...returnData, returned_date: e.target.value })}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Returned Scaffoldings (of {rental.num_scaffoldings})</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max={rental.num_scaffoldings}
-                            value={returnData.returned_num_scaffoldings || 0}
-                            onChange={(e) => setReturnData({ ...returnData, returned_num_scaffoldings: parseInt(e.target.value) || 0 })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Returned Chopsticks (of {rental.num_chopsticks})</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max={rental.num_chopsticks}
-                            value={returnData.returned_num_chopsticks || 0}
-                            onChange={(e) => setReturnData({ ...returnData, returned_num_chopsticks: parseInt(e.target.value) || 0 })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Returned Plates (of {rental.plates})</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max={rental.plates}
-                            value={returnData.returned_plates || 0}
-                            onChange={(e) => setReturnData({ ...returnData, returned_plates: parseInt(e.target.value) || 0 })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Returned Timbers (of {rental.timbers})</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max={rental.timbers}
-                            value={returnData.returned_timbers || 0}
-                            onChange={(e) => setReturnData({ ...returnData, returned_timbers: parseInt(e.target.value) || 0 })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Returned Connectors (of {rental.connectors})</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max={rental.connectors}
-                            value={returnData.returned_connectors || 0}
-                            onChange={(e) => setReturnData({ ...returnData, returned_connectors: parseInt(e.target.value) || 0 })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Returned Legs (of {rental.legs})</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max={rental.legs}
-                            value={returnData.returned_legs || 0}
-                            onChange={(e) => setReturnData({ ...returnData, returned_legs: parseInt(e.target.value) || 0 })}
-                          />
-                        </div>
-                        {rental.tubes_6m > 0 && (
-                          <div>
-                            <Label>Returned 6m Tubes (of {rental.tubes_6m})</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max={rental.tubes_6m}
-                              value={returnData.returned_tubes_6m || 0}
-                              onChange={(e) => setReturnData({ ...returnData, returned_tubes_6m: parseInt(e.target.value) || 0 })}
-                            />
-                          </div>
-                        )}
-                        {rental.tubes_4m > 0 && (
-                          <div>
-                            <Label>Returned 4m Tubes (of {rental.tubes_4m})</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max={rental.tubes_4m}
-                              value={returnData.returned_tubes_4m || 0}
-                              onChange={(e) => setReturnData({ ...returnData, returned_tubes_4m: parseInt(e.target.value) || 0 })}
-                            />
-                          </div>
-                        )}
-                        {rental.tubes_3m > 0 && (
-                          <div>
-                            <Label>Returned 3m Tubes (of {rental.tubes_3m})</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max={rental.tubes_3m}
-                              value={returnData.returned_tubes_3m || 0}
-                              onChange={(e) => setReturnData({ ...returnData, returned_tubes_3m: parseInt(e.target.value) || 0 })}
-                            />
-                          </div>
-                        )}
-                        {rental.tubes_1m > 0 && (
-                          <div>
-                            <Label>Returned 1m Tubes (of {rental.tubes_1m})</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max={rental.tubes_1m}
-                              value={returnData.returned_tubes_1m || 0}
-                              onChange={(e) => setReturnData({ ...returnData, returned_tubes_1m: parseInt(e.target.value) || 0 })}
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-4">
-                        <div>
-                          <Label>Total Paid (FRW)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={returnData.total_paid || 0}
-                            onChange={(e) => setReturnData({ ...returnData, total_paid: parseFloat(e.target.value) || 0 })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Balance Due (FRW)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={returnData.balance_due || 0}
-                            onChange={(e) => setReturnData({ ...returnData, balance_due: parseFloat(e.target.value) || 0 })}
-                          />
-                        </div>
-                      </div>
-
-                      <Button onClick={handlePartialReturn} className="w-full">
-                        Save Partial Return
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setRentalToDelete(rental.id)}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Delete
+              </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+        <CardContent className="space-y-4 pt-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs border-t pt-3">
             <div>
               <p className="text-muted-foreground">Scaffoldings</p>
               <p className="font-semibold">
                 {rental.num_scaffoldings}
                 {rental.returned_num_scaffoldings > 0 && (
-                  <span className="text-muted-foreground text-xs ml-1">
-                    ({rental.returned_num_scaffoldings} returned)
+                  <span className="text-muted-foreground text-[10px] ml-1">
+                    ({rental.returned_num_scaffoldings} ret)
                   </span>
                 )}
               </p>
@@ -426,8 +292,8 @@ const Dashboard = () => {
               <p className="font-semibold">
                 {rental.num_chopsticks}
                 {rental.returned_num_chopsticks > 0 && (
-                  <span className="text-muted-foreground text-xs ml-1">
-                    ({rental.returned_num_chopsticks} returned)
+                  <span className="text-muted-foreground text-[10px] ml-1">
+                    ({rental.returned_num_chopsticks} ret)
                   </span>
                 )}
               </p>
@@ -437,162 +303,302 @@ const Dashboard = () => {
               <p className="font-semibold">
                 {rental.plates}
                 {rental.returned_plates > 0 && (
-                  <span className="text-muted-foreground text-xs ml-1">
-                    ({rental.returned_plates} returned)
-                  </span>
-                )}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Timbers</p>
-              <p className="font-semibold">
-                {rental.timbers}
-                {rental.returned_timbers > 0 && (
-                  <span className="text-muted-foreground text-xs ml-1">
-                    ({rental.returned_timbers} returned)
-                  </span>
-                )}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Connectors</p>
-              <p className="font-semibold">
-                {rental.connectors}
-                {rental.returned_connectors > 0 && (
-                  <span className="text-muted-foreground text-xs ml-1">
-                    ({rental.returned_connectors} returned)
-                  </span>
-                )}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Legs</p>
-              <p className="font-semibold">
-                {rental.legs}
-                {rental.returned_legs > 0 && (
-                  <span className="text-muted-foreground text-xs ml-1">
-                    ({rental.returned_legs} returned)
+                  <span className="text-muted-foreground text-[10px] ml-1">
+                    ({rental.returned_plates} ret)
                   </span>
                 )}
               </p>
             </div>
           </div>
 
-          <div className="border-t pt-3 grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+          <div className="border-t pt-3 grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
             <div>
-              <p className="text-muted-foreground">Price per Scaffolding</p>
-              <p className="font-semibold">{rental.price_per_scaffolding} FRW</p>
+              <p className="text-muted-foreground">Price/Scaffold</p>
+              <p className="font-semibold">{formatCurrency(rental.price_per_scaffolding || 0)}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">Expected Days</p>
-              <p className={`font-semibold ${overdue ? "text-destructive" : ""}`}>{rental.expected_days}</p>
+              <p className="text-muted-foreground">Total Paid</p>
+              <p className="font-semibold text-emerald-600">{formatCurrency(rental.total_paid || 0)}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">Paid Days</p>
-              <p className={`font-semibold ${overdue ? "text-destructive" : ""}`}>{rental.paid_days}</p>
-            </div>
-            {rental.total_paid > 0 && (
-              <div>
-                <p className="text-muted-foreground">Total Paid</p>
-                <p className="font-semibold">{rental.total_paid} FRW</p>
-              </div>
-            )}
-            {rental.balance_due > 0 && (
-              <div>
-                <p className="text-muted-foreground">Balance Due</p>
-                <p className="font-semibold text-destructive">{rental.balance_due} FRW</p>
-              </div>
-            )}
-          </div>
-
-          {rental.country || rental.province || rental.district ? (
-            <div className="border-t pt-3">
-              <p className="text-sm text-muted-foreground">Location</p>
-              <p className="text-sm font-medium">
-                {[rental.country, rental.province, rental.district].filter(Boolean).join(", ")}
+              <p className="text-muted-foreground">Balance</p>
+              <p className={cn("font-semibold", (rental.balance_due || 0) > 0 ? "text-destructive" : "text-emerald-600")}>
+                {formatCurrency(rental.balance_due || 0)}
               </p>
             </div>
-          ) : null}
+          </div>
 
-          <div className="border-t pt-3 text-sm space-y-1">
-            <p className="text-muted-foreground">
-              Picked up by: <span className="font-medium text-foreground">{rental.pickup_person_name}</span>
-            </p>
-            <p className="text-muted-foreground">
+          <div className="border-t pt-3 text-[10px] space-y-1 text-muted-foreground">
+            <p>
               Vehicle: <span className="font-medium text-foreground">{rental.vehicle_type}</span>
               {rental.plate_number && ` • ${rental.plate_number}`}
             </p>
-            <p className="text-muted-foreground">
+            <p>
               Rented: <span className="font-medium text-foreground">
-                {format(new Date(rental.rented_date), "PPP")}
-              </span>
-            </p>
-            {rental.returned_date && (
-              <p className="text-muted-foreground">
-                Returned: <span className="font-medium text-foreground">
-                  {format(new Date(rental.returned_date), "PPP")}
-                </span>
-              </p>
-            )}
-            <p className="text-muted-foreground">
-              Created by: <span className="font-medium text-foreground">
-                {rental.profiles?.full_name || "Unknown"}
+                {format(new Date(rental.rented_date), "PP")}
               </span>
             </p>
           </div>
 
           {showReturnButton && (
-            <Button
-              onClick={() => handleReturnRental(rental.id)}
-              className="w-full mt-4"
-              variant="outline"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Mark as Returned
-            </Button>
+            <div className="flex gap-2 pt-2 border-t">
+              <Dialog open={isReturnDialogOpen && selectedRental?.id === rental.id} onOpenChange={setIsReturnDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-9 text-xs"
+                    onClick={() => {
+                      setSelectedRental(rental);
+                      setIsReturnDialogOpen(true);
+                      setReturnData({
+                        returned_num_scaffoldings: rental.returned_num_scaffoldings || 0,
+                        returned_num_chopsticks: rental.returned_num_chopsticks || 0,
+                        returned_plates: rental.returned_plates || 0,
+                        returned_timbers: rental.returned_timbers || 0,
+                        returned_connectors: rental.returned_connectors || 0,
+                        returned_legs: rental.returned_legs || 0,
+                        returned_tubes_6m: rental.returned_tubes_6m || 0,
+                        returned_tubes_4m: rental.returned_tubes_4m || 0,
+                        returned_tubes_3m: rental.returned_tubes_3m || 0,
+                        returned_tubes_1m: rental.returned_tubes_1m || 0,
+                        total_paid: rental.total_paid || 0,
+                        balance_due: rental.balance_due || 0,
+                        returned_date: rental.returned_date || new Date().toISOString().split('T')[0],
+                      });
+                    }}
+                  >
+                    Partial Return
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Record Partial Return - {rental.clients?.name}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Return Date</Label>
+                        <Input
+                          type="date"
+                          value={returnData.returned_date || ""}
+                          onChange={(e) => setReturnData({ ...returnData, returned_date: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Returned Scaffoldings (of {rental.num_scaffoldings})</Label>
+                        <Input
+                          type="number"
+                          value={returnData.returned_num_scaffoldings || 0}
+                          onChange={(e) => setReturnData({ ...returnData, returned_num_scaffoldings: parseInt(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Returned Chopsticks (of {rental.num_chopsticks})</Label>
+                        <Input
+                          type="number"
+                          value={returnData.returned_num_chopsticks || 0}
+                          onChange={(e) => setReturnData({ ...returnData, returned_num_chopsticks: parseInt(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Returned Plates (of {rental.plates})</Label>
+                        <Input
+                          type="number"
+                          value={returnData.returned_plates || 0}
+                          onChange={(e) => setReturnData({ ...returnData, returned_plates: parseInt(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-4">
+                      <div>
+                        <Label>Total Paid (FRW)</Label>
+                        <Input
+                          type="number"
+                          value={returnData.total_paid || 0}
+                          onChange={(e) => setReturnData({ ...returnData, total_paid: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Balance Due (FRW)</Label>
+                        <Input
+                          type="number"
+                          value={returnData.balance_due || 0}
+                          onChange={(e) => setReturnData({ ...returnData, balance_due: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </div>
+
+                    <Button onClick={handlePartialReturn} className="w-full">
+                      Update Partial Return
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Button
+                size="sm"
+                className="flex-1 h-9 text-xs"
+                onClick={() => handleReturnRental(rental.id)}
+              >
+                Mark Full Return
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
     );
   };
 
-  return (
-    <div className="p-0 sm:p-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">View and manage all scaffolding rentals</p>
-      </div>
-
-      <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, nickname, phone, or ID/TIN..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+  const KPICard = ({ title, value, icon: Icon, color, subtext, editable, onUpdate }: {
+    title: string;
+    value: number;
+    icon: React.ElementType;
+    color: string;
+    subtext: string;
+    editable?: boolean;
+    onUpdate?: (val: string) => void
+  }) => (
+    <Card className="overflow-hidden border-none shadow-md bg-white/50 backdrop-blur-sm group hover:shadow-lg transition-all duration-300">
+      <div className={cn("h-1 w-full", color)} />
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between mb-2">
+          <div className={cn("p-2 rounded-lg bg-opacity-10", color.replace('bg-', 'bg-opacity-10 text-'))}>
+            <Icon className={cn("h-5 w-5", color.replace('bg-', 'text-'))} />
+          </div>
+          {editable && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Update {title}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="stock">New Total Stock</Label>
+                    <Input
+                      id="stock"
+                      type="number"
+                      defaultValue={value}
+                      className="col-span-3"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          onUpdate((e.target as HTMLInputElement).value);
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button onClick={(e) => {
+                    const input = (e.currentTarget.previousElementSibling?.querySelector('input') as HTMLInputElement);
+                    onUpdate(input.value);
+                  }}>
+                    Save Changes
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
+        <div className="space-y-1">
+          <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold tracking-tight">{value}</span>
+            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{subtext}</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const handleUpdateStock = async (newStock: string) => {
+    const stock = parseInt(newStock);
+    if (isNaN(stock)) return;
+
+    const { error } = await supabase
+      .from("inventory")
+      .update({ total_stock: stock, available_stock: stock })
+      .eq("item_name", "Scaffoldings");
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update stock",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Stock updated successfully",
+      });
+      fetchInventory();
+    }
+  };
+
+  const rentedItems = rentals.filter((r) => r.status === "RENTED");
+  const returnedItems = rentals.filter((r) => r.status === "RETURNED");
+  const scaffoldStock = inventory.find(i => i.item_name === "Scaffoldings") || { total_stock: 0, available_stock: 0 };
+
+  // Calculate currently rented: sum of (total - returned) for all NON-returned rentals
+  const rentedScaffoldings = rentals
+    .filter(r => r.status !== "RETURNED") // Include partially returned ones
+    .reduce((acc, r) => acc + (r.num_scaffoldings - (r.returned_num_scaffoldings || 0)), 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <KPICard
+          title="Total Stock"
+          value={scaffoldStock.total_stock}
+          icon={Warehouse}
+          color="bg-blue-500"
+          subtext="Total quantity owned"
+          editable={true}
+          onUpdate={handleUpdateStock}
+        />
+        <KPICard
+          title="Currently Rented"
+          value={rentedScaffoldings}
+          icon={Layers}
+          color="bg-amber-500"
+          subtext="Items currently with clients"
+        />
+        <KPICard
+          title="Available in Stock"
+          value={Math.max(0, scaffoldStock.total_stock - rentedScaffoldings)}
+          icon={CheckCircle2}
+          color="bg-emerald-500"
+          subtext="Ready for new rentals"
+        />
       </div>
 
       <Tabs defaultValue="rented" className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="rented">
+          <TabsTrigger value="rented" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
             Rented ({rentedItems.length})
           </TabsTrigger>
-          <TabsTrigger value="returned">
+          <TabsTrigger value="returned" className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" />
             Returned ({returnedItems.length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="rented" className="space-y-4">
+        <TabsContent value="rented" className="space-y-4 pt-4">
           {loading ? (
-            <p className="text-center text-muted-foreground py-8">Loading...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map(i => (
+                <Card key={i} className="h-48 animate-pulse bg-muted/50" />
+              ))}
+            </div>
           ) : rentedItems.length === 0 ? (
-            <Card>
+            <Card className="border-dashed">
               <CardContent className="py-12 text-center">
-                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No rented items</p>
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
+                <p className="text-muted-foreground">No active rentals found</p>
               </CardContent>
             </Card>
           ) : (
@@ -604,14 +610,18 @@ const Dashboard = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="returned" className="space-y-4">
+        <TabsContent value="returned" className="space-y-4 pt-4">
           {loading ? (
-            <p className="text-center text-muted-foreground py-8">Loading...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map(i => (
+                <Card key={i} className="h-48 animate-pulse bg-muted/50" />
+              ))}
+            </div>
           ) : returnedItems.length === 0 ? (
-            <Card>
+            <Card className="border-dashed">
               <CardContent className="py-12 text-center">
-                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No returned items</p>
+                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
+                <p className="text-muted-foreground">No returned rentals found</p>
               </CardContent>
             </Card>
           ) : (
@@ -640,95 +650,44 @@ const Dashboard = () => {
                   <h3 className="text-lg font-semibold mb-3 border-b pb-1">Client Information</h3>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     <p className="text-muted-foreground">Full Name:</p>
-                    <p className="font-medium">{selectedRentalForDetails.clients.name}</p>
+                    <p className="font-medium">{selectedRentalForDetails.clients?.name}</p>
                     <p className="text-muted-foreground">Nickname/ID:</p>
-                    <p className="font-medium">{selectedRentalForDetails.clients.nickname || "N/A"}</p>
+                    <p className="font-medium">{selectedRentalForDetails.clients?.nickname || "N/A"}</p>
                     <p className="text-muted-foreground">Phone:</p>
-                    <p className="font-medium">{selectedRentalForDetails.clients.phone}</p>
+                    <p className="font-medium">{selectedRentalForDetails.clients?.phone}</p>
                     <p className="text-muted-foreground">ID/TIN No:</p>
-                    <p className="font-medium">{selectedRentalForDetails.clients.id_tin_no}</p>
+                    <p className="font-medium">{selectedRentalForDetails.clients?.id_tin_no}</p>
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-semibold mb-3 border-b pb-1">Item Breakdown</h3>
+                  <h3 className="text-lg font-semibold mb-3 border-b pb-1">Scaffolding Details</h3>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     <p className="text-muted-foreground">Scaffoldings:</p>
-                    <p className="font-medium">{selectedRentalForDetails.num_scaffoldings} ({selectedRentalForDetails.returned_num_scaffoldings || 0} returned)</p>
+                    <p className="font-medium">{selectedRentalForDetails.num_scaffoldings} (Returned: {selectedRentalForDetails.returned_num_scaffoldings || 0})</p>
                     <p className="text-muted-foreground">Chopsticks:</p>
-                    <p className="font-medium">{selectedRentalForDetails.num_chopsticks} ({selectedRentalForDetails.returned_num_chopsticks || 0} returned)</p>
+                    <p className="font-medium">{selectedRentalForDetails.num_chopsticks} (Returned: {selectedRentalForDetails.returned_num_chopsticks || 0})</p>
                     <p className="text-muted-foreground">Plates:</p>
-                    <p className="font-medium">{selectedRentalForDetails.plates} ({selectedRentalForDetails.returned_plates || 0} returned)</p>
-                    <p className="text-muted-foreground">Timbers:</p>
-                    <p className="font-medium">{selectedRentalForDetails.timbers} ({selectedRentalForDetails.returned_timbers || 0} returned)</p>
-                    <p className="text-muted-foreground">Connectors:</p>
-                    <p className="font-medium">{selectedRentalForDetails.connectors} ({selectedRentalForDetails.returned_connectors || 0} returned)</p>
-                    <p className="text-muted-foreground">Legs:</p>
-                    <p className="font-medium">{selectedRentalForDetails.legs} ({selectedRentalForDetails.returned_legs || 0} returned)</p>
-                    {selectedRentalForDetails.tubes_6m > 0 && (
-                      <><p className="text-muted-foreground">6m Tubes:</p><p className="font-medium">{selectedRentalForDetails.tubes_6m} ({selectedRentalForDetails.returned_tubes_6m || 0} returned)</p></>
-                    )}
-                    {selectedRentalForDetails.tubes_4m > 0 && (
-                      <><p className="text-muted-foreground">4m Tubes:</p><p className="font-medium">{selectedRentalForDetails.tubes_4m} ({selectedRentalForDetails.returned_tubes_4m || 0} returned)</p></>
-                    )}
-                    {selectedRentalForDetails.tubes_3m > 0 && (
-                      <><p className="text-muted-foreground">3m Tubes:</p><p className="font-medium">{selectedRentalForDetails.tubes_3m} ({selectedRentalForDetails.returned_tubes_3m || 0} returned)</p></>
-                    )}
-                    {selectedRentalForDetails.tubes_1m > 0 && (
-                      <><p className="text-muted-foreground">1m Tubes:</p><p className="font-medium">{selectedRentalForDetails.tubes_1m} ({selectedRentalForDetails.returned_tubes_1m || 0} returned)</p></>
-                    )}
+                    <p className="font-medium">{selectedRentalForDetails.plates} (Returned: {selectedRentalForDetails.returned_plates || 0})</p>
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-semibold mb-3 border-b pb-1">Payment & Status</h3>
+                  <h3 className="text-lg font-semibold mb-3 border-b pb-1">Financial Summary</h3>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <p className="text-muted-foreground">Status:</p>
-                    <Badge variant={selectedRentalForDetails.status === "RENTED" ? "default" : "secondary"}>
-                      {selectedRentalForDetails.status}
-                    </Badge>
+                    <p className="text-muted-foreground">Price/Scaffold:</p>
+                    <p className="font-medium">{formatCurrency(selectedRentalForDetails.price_per_scaffolding || 0)}</p>
                     <p className="text-muted-foreground">Total Paid:</p>
-                    <p className="font-medium text-success">{selectedRentalForDetails.total_paid} FRW</p>
+                    <p className="font-medium text-emerald-600">{formatCurrency(selectedRentalForDetails.total_paid || 0)}</p>
                     <p className="text-muted-foreground">Balance Due:</p>
-                    <p className={`font-medium ${selectedRentalForDetails.balance_due > 0 ? "text-destructive" : "text-success"}`}>
-                      {selectedRentalForDetails.balance_due} FRW
+                    <p className={cn("font-medium", selectedRentalForDetails.balance_due > 0 ? "text-destructive" : "text-emerald-600")}>
+                      {formatCurrency(selectedRentalForDetails.balance_due || 0)}
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-3 border-b pb-1">Uploaded Document</h3>
-                  {selectedRentalForDetails.document_image_url ? (
-                    <div className="mt-2 rounded-lg border overflow-hidden bg-muted">
-                      <img
-                        src={selectedRentalForDetails.document_image_url}
-                        alt="Rental Document"
-                        className="w-full h-auto object-contain max-h-[400px]"
-                        onError={(e) => {
-                          (e.target as any).style.display = 'none';
-                        }}
-                      />
-                      <div className="p-4 flex items-center justify-between bg-background border-t">
-                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                          {selectedRentalForDetails.document_image_url.split('/').pop()}
-                        </span>
-                        <Button size="sm" variant="outline" asChild>
-                          <a href={selectedRentalForDetails.document_image_url} target="_blank" rel="noopener noreferrer">
-                            Open Original
-                          </a>
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed rounded-lg bg-muted/50">
-                      <FileText className="h-10 w-10 text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">No document uploaded</p>
-                    </div>
-                  )}
-                </div>
-
                 <div>
                   <h3 className="text-lg font-semibold mb-3 border-b pb-1">Logistics</h3>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -746,11 +705,59 @@ const Dashboard = () => {
                     )}
                   </div>
                 </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 border-b pb-1">Document</h3>
+                  {selectedRentalForDetails.document_image_url ? (
+                    <div className="rounded-lg border overflow-hidden mt-2">
+                      <img
+                        src={selectedRentalForDetails.document_image_url}
+                        alt="Rental ID"
+                        className="w-full h-auto object-contain max-h-[300px]"
+                      />
+                      <div className="p-2 bg-muted/50 flex justify-end">
+                        <Button size="sm" variant="outline" asChild>
+                          <a href={selectedRentalForDetails.document_image_url} target="_blank" rel="noreferrer" className="flex items-center gap-1">
+                            <FileText className="h-3 w-3" />
+                            View Full File
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-lg text-muted-foreground bg-muted/20 mt-2">
+                      <FileText className="h-8 w-8 mb-2 opacity-20" />
+                      <span className="text-xs">No file uploaded</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!rentalToDelete} onOpenChange={(open) => !open && setRentalToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the rental record
+              and any associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => rentalToDelete && handleDeleteRental(rentalToDelete)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete Permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

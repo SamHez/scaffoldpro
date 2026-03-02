@@ -54,11 +54,7 @@ const AuditLog = () => {
   };
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Audit Log</h1>
-        <p className="text-muted-foreground mt-1">Track all changes made to the system</p>
-      </div>
+    <div className="space-y-6">
 
       {loading ? (
         <p className="text-center text-muted-foreground py-8">Loading...</p>
