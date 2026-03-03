@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -30,8 +30,26 @@ const rentalSchema = z.object({
 export const RentalForm = () => {
   const [loading, setLoading] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .single();
+        if (roles) {
+          setUserRole(roles.role);
+        }
+      }
+    };
+    fetchUserRole();
+  }, []);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -57,6 +75,7 @@ export const RentalForm = () => {
     pickup_person_name: "",
     vehicle_type: "",
     plate_number: "",
+    rented_date: new Date().toISOString().split('T')[0],
   });
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,7 +147,12 @@ export const RentalForm = () => {
           .upload(fileName, uploadedImage);
 
         if (uploadError) throw uploadError;
-        documentImageUrl = uploadData.path;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('rental-documents')
+          .getPublicUrl(uploadData.path);
+
+        documentImageUrl = publicUrl;
       }
 
       // Create client
@@ -171,6 +195,7 @@ export const RentalForm = () => {
           vehicle_type: uploadedImage ? "" : formData.vehicle_type,
           plate_number: formData.plate_number || null,
           document_image_url: documentImageUrl,
+          rented_date: formData.rented_date || new Date().toISOString(),
           created_by: user.id,
         });
 
@@ -221,6 +246,25 @@ export const RentalForm = () => {
           </div>
         </CardContent>
       </Card>
+
+      {userRole === "CEO" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Rental Date (CEO Only)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="rented_date">Date of Rental</Label>
+              <Input
+                id="rented_date"
+                type="date"
+                value={formData.rented_date}
+                onChange={(e) => setFormData({ ...formData, rented_date: e.target.value })}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
