@@ -1,73 +1,65 @@
-# Welcome to your Lovable project
+# ScaffoldPro
 
-## Project info
+Professional scaffolding management system designed for industrial and commercial operations.
 
-**URL**: https://lovable.dev/projects/46527e52-3f10-4f58-acd6-88f92f49d313
+## Project Overview
 
-## How can I edit this code?
+ScaffoldPro is a modern SaaS dashboard for managing scaffold inventory, rentals, and audit logs. Built with a focus on performance, clarity, and ease of use.
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/46527e52-3f10-4f58-acd6-88f92f49d313) and start prompting.
+- Node.js (v18 or higher)
+- npm or yarn
 
-Changes made via Lovable will be committed automatically to this repo.
+### Installation
 
-**Use your preferred IDE**
+1. Clone the repository:
+   ```sh
+   git clone <YOUR_GIT_URL>
+   ```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+2. Navigate to the project directory:
+   ```sh
+   cd scaffoldpro
+   ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+3. Install dependencies:
+   ```sh
+   npm install
+   ```
 
-Follow these steps:
+4. Start the development server:
+   ```sh
+   npm run dev
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Technologies Used
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- **Framework**: [React](https://reactjs.org/) with [Vite](https://vitejs.dev/)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **UI Components**: [shadcn/ui](https://ui.shadcn.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Backend/Auth**: [Supabase](https://supabase.com/)
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Deployment
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+This project can be deployed to any modern web hosting platform:
 
-**Edit a file directly in GitHub**
+1. **Build the project**:
+   ```sh
+   npm run build
+   ```
+2. **Deploy the `dist` folder** to providers like [Netlify](https://www.netlify.com/), [Vercel](https://vercel.com/), or [GitHub Pages](https://pages.github.com/).
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Features
 
-**Use GitHub Codespaces**
+- **Dashboard**: Real-time overview of scaffold inventory and rental status.
+- **Rental Management**: Track client rentals, vehicle data, and return dates.
+- **Audit Log**: Comprehensive tracking of all system changes and administrative actions.
+- **Modern UI**: Dark-mode optimized, responsive design with glassmorphism effects.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/46527e52-3f10-4f58-acd6-88f92f49d313) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+---
+© 2026 ScaffoldPro.

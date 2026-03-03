@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const Dashboard = () => {
+  const { searchQuery } = useOutletContext<{ searchQuery: string }>();
   const [rentals, setRentals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRental, setSelectedRental] = useState<any | null>(null);
@@ -518,15 +520,20 @@ const Dashboard = () => {
     const stock = parseInt(newStock);
     if (isNaN(stock)) return;
 
+    // Use upsert to create the record if it doesn't exist
     const { error } = await supabase
       .from("inventory")
-      .update({ total_stock: stock, available_stock: stock })
-      .eq("item_name", "Scaffoldings");
+      .upsert({
+        item_name: "Scaffoldings",
+        total_stock: stock,
+        available_stock: stock
+      }, { onConflict: 'item_name' });
 
     if (error) {
+      console.error("Upsert error:", error);
       toast({
         title: "Error",
-        description: "Failed to update stock",
+        description: "Failed to update stock: " + error.message,
         variant: "destructive",
       });
     } else {
@@ -538,14 +545,29 @@ const Dashboard = () => {
     }
   };
 
-  const rentedItems = rentals.filter((r) => r.status === "RENTED");
-  const returnedItems = rentals.filter((r) => r.status === "RETURNED");
+  const filteredRentals = rentals.filter((rental) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    const client = rental.clients || {};
+    return (
+      client.name?.toLowerCase().includes(query) ||
+      client.nickname?.toLowerCase().includes(query) ||
+      client.phone?.toLowerCase().includes(query) ||
+      rental.vehicle_type?.toLowerCase().includes(query) ||
+      rental.plate_number?.toLowerCase().includes(query)
+    );
+  });
+
+  const rentedItems = filteredRentals.filter((r) => r.status === "RENTED");
+  const returnedItems = filteredRentals.filter((r) => r.status === "RETURNED");
   const scaffoldStock = inventory.find(i => i.item_name === "Scaffoldings") || { total_stock: 0, available_stock: 0 };
 
   // Calculate currently rented: sum of (total - returned) for all NON-returned rentals
   const rentedScaffoldings = rentals
-    .filter(r => r.status !== "RETURNED") // Include partially returned ones
+    .filter(r => r.status !== "RETURNED")
     .reduce((acc, r) => acc + (r.num_scaffoldings - (r.returned_num_scaffoldings || 0)), 0);
+
+  const availableInStock = Math.max(0, scaffoldStock.total_stock - rentedScaffoldings);
 
   return (
     <div className="space-y-6">
@@ -564,11 +586,11 @@ const Dashboard = () => {
           value={rentedScaffoldings}
           icon={Layers}
           color="bg-amber-500"
-          subtext="Items currently with clients"
+          subtext="Total scaffolding units out"
         />
         <KPICard
           title="Available in Stock"
-          value={Math.max(0, scaffoldStock.total_stock - rentedScaffoldings)}
+          value={availableInStock}
           icon={CheckCircle2}
           color="bg-emerald-500"
           subtext="Ready for new rentals"

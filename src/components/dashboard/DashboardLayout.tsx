@@ -7,6 +7,7 @@ import { Building2, LogOut, Plus, Users, FileText, Menu, Search, User as UserIco
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,9 +26,11 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
-export const DashboardLayout = () => {
+const DashboardLayoutContent = () => {
+  const { state } = useSidebar();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -39,7 +42,6 @@ export const DashboardLayout = () => {
   const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Scroll the specific main container and the window to top on route change
     const scrollToTop = () => {
       if (mainRef.current) {
         mainRef.current.scrollTop = 0;
@@ -47,25 +49,18 @@ export const DashboardLayout = () => {
       window.scrollTo(0, 0);
     };
 
-    // Immediate scroll
     scrollToTop();
-
-    // Backup scroll after a tiny delay to ensure heavy pages also reset
     const timeoutId = setTimeout(scrollToTop, 10);
     return () => clearTimeout(timeoutId);
   }, [location.pathname]);
 
   useEffect(() => {
-    console.log("DashboardLayout: Initializing auth...");
-
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("DashboardLayout: Session fetched:", session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoadingAuth(false);
 
       if (!session) {
-        console.log("DashboardLayout: No session, redirecting...");
         navigate("/");
       } else {
         fetchProfile(session.user.id);
@@ -74,7 +69,6 @@ export const DashboardLayout = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("DashboardLayout: Auth state changed:", event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoadingAuth(false);
@@ -119,24 +113,21 @@ export const DashboardLayout = () => {
     }
   };
 
-  const getActiveTab = () => {
+  const activeTab = (() => {
     const path = location.pathname;
     if (path === "/dashboard") return "rentals";
     if (path === "/dashboard/add") return "add";
     if (path === "/dashboard/audit") return "audit";
     return "";
-  };
+  })();
 
-  const getPageTitle = () => {
+  const pageTitle = (() => {
     const path = location.pathname;
     if (path === "/dashboard") return "Dashboard";
     if (path === "/dashboard/add") return "Add Rental";
     if (path === "/dashboard/audit") return "Audit Log";
     return "ScaffoldPro";
-  };
-
-  const activeTab = getActiveTab();
-  const pageTitle = getPageTitle();
+  })();
 
   if (isLoadingAuth) {
     return (
@@ -155,159 +146,200 @@ export const DashboardLayout = () => {
   );
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
-        <Sidebar collapsible="icon">
-          <SidebarHeader className="p-4 border-b border-sidebar-border">
-            <div className="flex items-center">
-              <img
-                src="/logo-w.png"
-                alt="ScaffoldPro"
-                className="h-8 w-auto px-2"
+    <div className="flex min-h-screen w-full bg-background overflow-hidden">
+      <Sidebar collapsible="icon" className="glass-grey border-none shadow-2xl transition-all duration-300">
+        <SidebarHeader className="p-4 border-b border-white/5 flex items-center justify-center overflow-hidden">
+          <div className="flex items-center min-h-[50px] justify-center w-full transition-all duration-300">
+            <img
+              src={state === "collapsed" ? "/icon-w.png" : "/logo-w.png"}
+              alt="ScaffoldPro"
+              className={cn(
+                "transition-all duration-500 ease-in-out px-1",
+                state === "collapsed" ? "h-9 w-auto scale-110" : "h-9 w-auto"
+              )}
+            />
+          </div>
+        </SidebarHeader>
+
+        <SidebarContent className="p-3">
+          <SidebarMenu className="gap-2">
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={activeTab === "rentals"}
+                onClick={() => navigate("/dashboard")}
+                tooltip="Rentals"
+                className={cn(
+                  "h-14 rounded-xl transition-all duration-200",
+                  activeTab === "rentals"
+                    ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/20 font-semibold"
+                    : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                )}
+              >
+                <Building2 className={cn(
+                  state === "collapsed" ? "h-7 w-7" : "h-5 w-5",
+                  activeTab === "rentals" ? "text-white" : "text-zinc-400"
+                )} />
+                <span className="font-medium">Rentals</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            {isCEOorCOO && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={activeTab === "add"}
+                  onClick={() => navigate("/dashboard/add")}
+                  tooltip="Add Rental"
+                  className={cn(
+                    "h-14 rounded-xl transition-all duration-200",
+                    activeTab === "add"
+                      ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/20 font-semibold"
+                      : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                  )}
+                >
+                  <Plus className={cn(
+                    state === "collapsed" ? "h-7 w-7" : "h-5 w-5",
+                    activeTab === "add" ? "text-white" : "text-zinc-400"
+                  )} />
+                  <span className="font-medium">Add Rental</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+
+            {profile?.user_roles?.some((ur: any) => ur.role === "CEO") && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={activeTab === "audit"}
+                  onClick={() => navigate("/dashboard/audit")}
+                  tooltip="Audit Log"
+                  className={cn(
+                    "h-14 rounded-xl transition-all duration-200",
+                    activeTab === "audit"
+                      ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/20 font-semibold"
+                      : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                  )}
+                >
+                  <FileText className={cn(
+                    state === "collapsed" ? "h-7 w-7" : "h-5 w-5",
+                    activeTab === "audit" ? "text-white" : "text-zinc-400"
+                  )} />
+                  <span className="font-medium">Audit Log</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+          </SidebarMenu>
+        </SidebarContent>
+
+        <SidebarFooter className="p-3 border-t border-white/5 mt-auto">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={handleLogout}
+                className="h-14 rounded-xl text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                tooltip="Logout"
+              >
+                <LogOut className={state === "collapsed" ? "h-7 w-7" : "h-5 w-5"} />
+                <span className="font-medium">Logout</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      </Sidebar>
+
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="h-16 border-b border-border flex items-center justify-between px-4 bg-background sticky top-0 z-30 relative">
+          <div className="flex items-center gap-4 flex-1">
+            <SidebarTrigger />
+            <div className="hidden md:block">
+              <h1 className="text-xl font-bold text-foreground">{pageTitle}</h1>
+            </div>
+
+            {/* Centered Mobile Logo */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:hidden">
+              <img src="/logo-v.png" alt="ScaffoldPro" className="h-10 w-auto" />
+            </div>
+
+            <div className="flex-1 max-w-md relative hidden sm:block mx-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search everything..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-9 bg-muted/50 border-none focus-visible:ring-1"
               />
             </div>
-          </SidebarHeader>
+          </div>
 
-          <SidebarContent className="p-4">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={activeTab === "rentals"}
-                  onClick={() => navigate("/dashboard")}
-                  tooltip="Rentals"
-                >
-                  <Building2 className="h-4 w-4" />
-                  <span>Rentals</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {isCEOorCOO && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    isActive={activeTab === "add"}
-                    onClick={() => navigate("/dashboard/add")}
-                    tooltip="Add Rental"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add Rental</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-
-              {profile?.user_roles?.some((ur: any) => ur.role === "CEO") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    isActive={activeTab === "audit"}
-                    onClick={() => navigate("/dashboard/audit")}
-                    tooltip="Audit Log"
-                  >
-                    <FileText className="h-4 w-4" />
-                    <span>Audit Log</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarContent>
-
-          <SidebarFooter className="p-4 border-t border-sidebar-border mt-auto">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={handleLogout}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  tooltip="Logout"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>Logout</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarFooter>
-        </Sidebar>
-
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-16 border-b border-border flex items-center justify-between px-4 bg-background sticky top-0 z-30">
-            <div className="flex items-center gap-4 flex-1">
-              <SidebarTrigger />
-              <div className="hidden md:block">
-                <h1 className="text-xl font-bold text-foreground">{pageTitle}</h1>
-              </div>
-
-              <div className="flex-1 max-w-md relative hidden sm:block mx-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search everything..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-9 bg-muted/50 border-none focus-visible:ring-1"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {isCEOorCOO && (
-                <Button
-                  size="sm"
-                  className="hidden md:flex gap-2"
-                  onClick={() => navigate("/dashboard/add")}
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Rental
-                </Button>
-              )}
-
-              <Button variant="ghost" size="icon" className="text-muted-foreground hidden">
-                <Bell className="h-5 w-5" />
+          <div className="flex items-center gap-2">
+            {isCEOorCOO && (
+              <Button
+                size="sm"
+                className="hidden md:flex gap-2"
+                onClick={() => navigate("/dashboard/add")}
+              >
+                <Plus className="h-4 w-4" />
+                Add Rental
               </Button>
+            )}
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 overflow-hidden ml-2">
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src="" alt={profile?.full_name} />
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {profile?.full_name?.charAt(0) || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{profile?.full_name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {profile?.user_roles?.[0]?.role || "Employee"}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/dashboard")}>
-                    <Building2 className="mr-2 h-4 w-4" />
-                    <span>My Dashboard</span>
-                  </DropdownMenuItem>
-                  {isCEOorCOO && (
-                    <DropdownMenuItem onClick={() => navigate("/dashboard/add")}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      <span>New Rental</span>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Logout</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </header>
+            <Button variant="ghost" size="icon" className="text-muted-foreground hidden">
+              <Bell className="h-5 w-5" />
+            </Button>
 
-          <main ref={mainRef} className="flex-1 overflow-auto bg-muted/20">
-            <div className="p-4 md:p-8 max-w-7xl mx-auto">
-              <Outlet context={{ searchQuery, setSearchQuery }} />
-            </div>
-          </main>
-        </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 overflow-hidden ml-2">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src="" alt={profile?.full_name} />
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {profile?.full_name?.charAt(0) || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{profile?.full_name}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {profile?.user_roles?.[0]?.role || "Employee"}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/dashboard")}>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  <span>My Dashboard</span>
+                </DropdownMenuItem>
+                {isCEOorCOO && (
+                  <DropdownMenuItem onClick={() => navigate("/dashboard/add")}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span>New Rental</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Logout</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
+
+        <main ref={mainRef} className="flex-1 overflow-auto bg-muted/20">
+          <div className="p-4 md:p-8 max-w-7xl mx-auto">
+            <Outlet context={{ searchQuery, setSearchQuery }} />
+          </div>
+        </main>
       </div>
+    </div>
+  );
+};
+
+export const DashboardLayout = () => {
+  return (
+    <SidebarProvider>
+      <DashboardLayoutContent />
     </SidebarProvider>
   );
 };
