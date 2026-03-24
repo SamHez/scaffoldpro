@@ -1,6 +1,6 @@
 # ScaffoldPro
 
-Professional scaffolding management system designed for industrial and commercial operations.
+Professional scaffolding management system designed for industrial and commercial operations
 
 ## Project Overview
 
