@@ -170,12 +170,22 @@ export const RentalForm = () => {
 
       if (clientError) throw clientError;
 
+      // Calculate totals
+      const numScaffoldings = uploadedImage ? 0 : formData.num_scaffoldings;
+      const pricePerScaffolding = uploadedImage ? 0 : formData.price_per_scaffolding;
+      const expectedDays = uploadedImage ? 1 : formData.expected_days;
+      const paidDays = uploadedImage ? 0 : formData.paid_days;
+
+      const totalPaid = numScaffoldings * pricePerScaffolding * paidDays;
+      const totalCost = numScaffoldings * pricePerScaffolding * expectedDays;
+      const balanceDue = totalCost - totalPaid;
+
       // Create rental
       const { error: rentalError } = await supabase
         .from("rentals")
         .insert({
           client_id: client.id,
-          num_scaffoldings: uploadedImage ? 0 : formData.num_scaffoldings,
+          num_scaffoldings: numScaffoldings,
           num_chopsticks: uploadedImage ? 0 : formData.num_chopsticks,
           plates: uploadedImage ? 0 : formData.plates,
           timbers: uploadedImage ? 0 : formData.timbers,
@@ -185,9 +195,11 @@ export const RentalForm = () => {
           tubes_4m: formData.tubes_4m || null,
           tubes_3m: formData.tubes_3m || null,
           tubes_1m: formData.tubes_1m || null,
-          price_per_scaffolding: uploadedImage ? 0 : formData.price_per_scaffolding,
-          expected_days: uploadedImage ? 1 : formData.expected_days,
-          paid_days: uploadedImage ? 0 : formData.paid_days,
+          price_per_scaffolding: pricePerScaffolding,
+          expected_days: expectedDays,
+          paid_days: paidDays,
+          total_paid: totalPaid,
+          balance_due: balanceDue,
           country: formData.country || null,
           province: formData.province || null,
           district: formData.district || null,

@@ -62,6 +62,16 @@ export const EditRentalDialog = ({
         setLoading(true);
 
         try {
+            // Calculate totals
+            const numScaffoldings = formData.num_scaffoldings || 0;
+            const pricePerScaffolding = formData.price_per_scaffolding || 0;
+            const expectedDays = formData.expected_days || 0;
+            const paidDays = formData.paid_days || 0;
+
+            const totalPaid = numScaffoldings * pricePerScaffolding * paidDays;
+            const totalCost = numScaffoldings * pricePerScaffolding * expectedDays;
+            const balanceDue = totalCost - totalPaid;
+
             // Update client
             const { error: clientError } = await supabase
                 .from("clients")
@@ -92,6 +102,8 @@ export const EditRentalDialog = ({
                     price_per_scaffolding: formData.price_per_scaffolding,
                     expected_days: formData.expected_days,
                     paid_days: formData.paid_days,
+                    total_paid: totalPaid,
+                    balance_due: balanceDue,
                     pickup_person_name: formData.pickup_person_name,
                     vehicle_type: formData.vehicle_type,
                     plate_number: formData.plate_number,
