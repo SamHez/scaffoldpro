@@ -96,6 +96,33 @@ export type Database = {
           },
         ]
       }
+      inventory: {
+        Row: {
+          available_stock: number
+          created_at: string
+          id: string
+          item_name: string
+          total_stock: number
+          updated_at: string
+        }
+        Insert: {
+          available_stock?: number
+          created_at?: string
+          id?: string
+          item_name: string
+          total_stock?: number
+          updated_at?: string
+        }
+        Update: {
+          available_stock?: number
+          created_at?: string
+          id?: string
+          item_name?: string
+          total_stock?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

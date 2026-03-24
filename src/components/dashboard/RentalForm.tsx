@@ -90,19 +90,51 @@ export const RentalForm = () => {
     setLoading(true);
 
     try {
-      // If image is uploaded, only name is required
-      if (!uploadedImage) {
-        // Validate location - at least one must be filled
-        if (!formData.country && !formData.province && !formData.district) {
-          toast({
-            title: "Validation Error",
-            description: "Please fill in at least one location field (country, province, or district)",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
+      // Validate location - at least one must be filled (database constraint)
+      if (!formData.country && !formData.province && !formData.district) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in at least one location field (country, province, or district)",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
 
+      // Validate mandatory fields even if image is uploaded
+      if (!formData.num_scaffoldings || formData.num_scaffoldings <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "Number of scaffoldings must be greater than 0",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (!formData.price_per_scaffolding || formData.price_per_scaffolding <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "Price per scaffolding must be greater than 0",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (formData.expected_days <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "Expected days must be greater than 0",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Apply Zod validation if no image is uploaded, or if an image is uploaded,
+      // ensure at least the name is present (as other fields might be on the image)
+      if (!uploadedImage) {
         const validation = rentalSchema.safeParse(formData);
         if (!validation.success) {
           toast({
@@ -161,8 +193,8 @@ export const RentalForm = () => {
         .insert({
           name: formData.name,
           nickname: formData.nickname || null,
-          id_tin_no: uploadedImage ? null : formData.id_tin_no,
-          phone: uploadedImage ? null : formData.phone,
+          id_tin_no: formData.id_tin_no || null,
+          phone: formData.phone || null,
           created_by: user.id,
         })
         .select()
@@ -171,10 +203,10 @@ export const RentalForm = () => {
       if (clientError) throw clientError;
 
       // Calculate totals
-      const numScaffoldings = uploadedImage ? 0 : formData.num_scaffoldings;
-      const pricePerScaffolding = uploadedImage ? 0 : formData.price_per_scaffolding;
-      const expectedDays = uploadedImage ? 1 : formData.expected_days;
-      const paidDays = uploadedImage ? 0 : formData.paid_days;
+      const numScaffoldings = formData.num_scaffoldings;
+      const pricePerScaffolding = formData.price_per_scaffolding;
+      const expectedDays = formData.expected_days;
+      const paidDays = formData.paid_days;
 
       const totalPaid = numScaffoldings * pricePerScaffolding * paidDays;
       const totalCost = numScaffoldings * pricePerScaffolding * expectedDays;
@@ -186,11 +218,11 @@ export const RentalForm = () => {
         .insert({
           client_id: client.id,
           num_scaffoldings: numScaffoldings,
-          num_chopsticks: uploadedImage ? 0 : formData.num_chopsticks,
-          plates: uploadedImage ? 0 : formData.plates,
-          timbers: uploadedImage ? 0 : formData.timbers,
-          connectors: uploadedImage ? 0 : formData.connectors,
-          legs: uploadedImage ? 0 : formData.legs,
+          num_chopsticks: formData.num_chopsticks,
+          plates: formData.plates,
+          timbers: formData.timbers,
+          connectors: formData.connectors,
+          legs: formData.legs,
           tubes_6m: formData.tubes_6m || null,
           tubes_4m: formData.tubes_4m || null,
           tubes_3m: formData.tubes_3m || null,
@@ -203,8 +235,8 @@ export const RentalForm = () => {
           country: formData.country || null,
           province: formData.province || null,
           district: formData.district || null,
-          pickup_person_name: uploadedImage ? "" : formData.pickup_person_name,
-          vehicle_type: uploadedImage ? "" : formData.vehicle_type,
+          pickup_person_name: formData.pickup_person_name,
+          vehicle_type: formData.vehicle_type,
           plate_number: formData.plate_number || null,
           document_image_url: documentImageUrl,
           rented_date: formData.rented_date || new Date().toISOString(),
@@ -213,15 +245,32 @@ export const RentalForm = () => {
 
       if (rentalError) throw rentalError;
 
+      // Deduct from inventory
+      const { data: currentInventory } = await supabase
+        .from("inventory")
+        .select("available_stock")
+        .eq("item_name", "Scaffoldings")
+        .maybeSingle();
+
+      if (currentInventory) {
+        await supabase
+          .from("inventory")
+          .update({ 
+            available_stock: Math.max(0, currentInventory.available_stock - numScaffoldings) 
+          })
+          .eq("item_name", "Scaffoldings");
+      }
+
       toast({
         title: "Success",
         description: "Rental created successfully",
       });
       navigate("/dashboard");
     } catch (error: any) {
+      console.error("Rental Creation Error:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create rental",
+        description: error.details || error.message || "Failed to create rental",
         variant: "destructive",
       });
     } finally {

@@ -91,22 +91,18 @@ const KPICard = ({ title, value, icon: Icon, color, subtext, editable, onUpdate 
   </Card>
 );
 
-const isOverdue = (rental: {
-  status: string;
-  balance_due?: number;
-  rented_date: string;
-  expected_days?: number;
-}) => {
-  if (rental.status === "RETURNED") return false;
-  const balanceDue = rental.balance_due || 0;
-  if (balanceDue > 0) return true;
+const getRentalStatus = (rental: any) => {
+  if (rental.status === "RETURNED") return { isLate: false, hasBalance: false };
 
   const rentedDate = new Date(rental.rented_date);
   const expectedDays = rental.expected_days || 0;
   const today = new Date();
-  const daysPassed = differenceInDays(today, rentedDate);
+  const daysPassed = Math.floor((today.getTime() - rentedDate.getTime()) / (1000 * 60 * 60 * 24));
+  
+  const isLate = daysPassed > expectedDays;
+  const hasBalance = (rental.balance_due || 0) > 0;
 
-  return daysPassed > expectedDays;
+  return { isLate, hasBalance };
 };
 
 interface RentalCardProps {
@@ -142,7 +138,8 @@ const RentalCard = ({
   setSelectedRentalForDetails,
   onEdit,
 }: RentalCardProps) => {
-  const overdue = isOverdue(rental);
+  const { isLate, hasBalance } = getRentalStatus(rental);
+  const overdue = isLate;
   const hasPartialReturn = (rental.returned_num_scaffoldings || 0) > 0 ||
     (rental.returned_num_chopsticks || 0) > 0 ||
     (rental.returned_plates || 0) > 0;
@@ -166,9 +163,14 @@ const RentalCard = ({
               <Badge variant={rental.status === "RENTED" ? "default" : "secondary"} className="text-[10px]">
                 {rental.status}
               </Badge>
-              {overdue && (
+              {isLate && (
                 <Badge variant="destructive" className="animate-pulse text-[10px]">
-                  OVERDUE / UNPAID
+                  OVERDUE
+                </Badge>
+              )}
+              {hasBalance && !isLate && (
+                <Badge variant="secondary" className="text-[10px]">
+                  UNPAID BALANCE
                 </Badge>
               )}
               {hasPartialReturn && (
@@ -459,9 +461,10 @@ const Dashboard = () => {
     setRentalToDelete(null);
 
     if (error) {
+      console.error("Delete Error:", error);
       toast({
         title: "Error",
-        description: "Failed to delete rental",
+        description: error.details || error.message || "Failed to delete rental",
         variant: "destructive",
       });
     } else {

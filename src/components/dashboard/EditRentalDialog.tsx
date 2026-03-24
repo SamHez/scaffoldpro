@@ -77,9 +77,9 @@ export const EditRentalDialog = ({
                 .from("clients")
                 .update({
                     name: formData.name,
-                    nickname: formData.nickname,
-                    phone: formData.phone,
-                    id_tin_no: formData.id_tin_no,
+                    nickname: formData.nickname || null,
+                    phone: formData.phone || null,
+                    id_tin_no: formData.id_tin_no || null,
                 })
                 .eq("id", rental.client_id);
 
@@ -120,9 +120,10 @@ export const EditRentalDialog = ({
             onSuccess();
             onOpenChange(false);
         } catch (error: any) {
+            console.error("Rental Update Error:", error);
             toast({
                 title: "Error",
-                description: error.message || "Failed to update rental",
+                description: error.details || error.message || "Failed to update rental",
                 variant: "destructive",
             });
         } finally {
