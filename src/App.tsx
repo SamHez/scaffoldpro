@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import AddRental from "./pages/AddRental";
 import AuditLog from "./pages/AuditLog";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
             <Route index element={<Dashboard />} />
             <Route path="add" element={<AddRental />} />
             <Route path="audit" element={<AuditLog />} />
+            <Route path="admin" element={<Admin />} />
           </Route>
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

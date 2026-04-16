@@ -3,7 +3,7 @@ import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
-import { Building2, LogOut, Plus, Users, FileText, Menu, Search, User as UserIcon, Bell } from "lucide-react";
+import { Building2, LogOut, Plus, Users, FileText, Menu, Search, User as UserIcon, Bell, ShieldCheck, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -82,6 +82,24 @@ const DashboardLayoutContent = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  // Real‑time profile sync – updates UI when role changes
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase.channel('public:profiles')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${user.id}`,
+      }, (payload) => {
+        setProfile(payload.new);
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
@@ -93,6 +111,10 @@ const DashboardLayoutContent = () => {
       console.error("Error fetching profile:", error);
     } else {
       setProfile(data);
+      // Redirect Super Admin to Admin page if they are at the dashboard root
+      if (data.role === 'ADMIN' && location.pathname === '/dashboard') {
+        navigate('/dashboard/admin');
+      }
     }
   };
 
@@ -118,6 +140,7 @@ const DashboardLayoutContent = () => {
     if (path === "/dashboard") return "rentals";
     if (path === "/dashboard/add") return "add";
     if (path === "/dashboard/audit") return "audit";
+    if (path === "/dashboard/admin") return "admin";
     return "";
   })();
 
@@ -126,36 +149,39 @@ const DashboardLayoutContent = () => {
     if (path === "/dashboard") return "Dashboard";
     if (path === "/dashboard/add") return "Add Rental";
     if (path === "/dashboard/audit") return "Audit Log";
+    if (path === "/dashboard/admin") return "System Admin";
     return "ScaffoldPro";
   })();
 
-  if (isLoadingAuth) {
+  if (isLoadingAuth || (user && !profile)) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen w-full bg-background/30 backdrop-blur-sm">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (!user && !isLoadingAuth) {
-    return null;
-  }
 
-  const isCEOorCOO = profile?.user_roles?.some((ur: any) =>
-    ur.role === "CEO" || ur.role === "COO"
-  );
+
+  const isCEOorCOO =
+    profile?.role === "CEO" ||
+    profile?.role === "COO" ||
+    profile?.user_roles?.some((ur: any) => ur.role === "CEO" || ur.role === "COO");
 
   return (
     <div className="flex min-h-screen w-full bg-background overflow-hidden">
       <Sidebar collapsible="icon" className="glass-grey border-none shadow-2xl transition-all duration-300">
-        <SidebarHeader className="p-4 border-b border-white/5 flex items-center justify-center overflow-hidden">
-          <div className="flex items-center min-h-[50px] justify-center w-full transition-all duration-300">
+        <SidebarHeader className="h-[72px] flex items-center justify-center p-0 transition-all duration-300 border-b border-white/5 bg-black/20">
+          <div className={cn(
+            "flex items-center justify-center w-full h-full transition-all duration-300",
+            state === "collapsed" ? "px-2" : "px-6"
+          )}>
             <img
               src={state === "collapsed" ? "/icon-w.png" : "/logo-w.png"}
               alt="ScaffoldPro"
               className={cn(
-                "transition-all duration-500 ease-in-out px-1",
-                state === "collapsed" ? "h-9 w-auto scale-110" : "h-9 w-auto"
+                "transition-all duration-500 ease-in-out object-contain",
+                state === "collapsed" ? "h-8 w-8 scale-110" : "h-9 w-auto"
               )}
             />
           </div>
@@ -163,27 +189,29 @@ const DashboardLayoutContent = () => {
 
         <SidebarContent className="p-3">
           <SidebarMenu className="gap-2">
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={activeTab === "rentals"}
-                onClick={() => navigate("/dashboard")}
-                tooltip="Rentals"
-                className={cn(
-                  "h-14 rounded-xl transition-all duration-200",
-                  activeTab === "rentals"
-                    ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/20 font-semibold"
-                    : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
-                )}
-              >
-                <Building2 className={cn(
-                  state === "collapsed" ? "h-7 w-7" : "h-5 w-5",
-                  activeTab === "rentals" ? "text-white" : "text-zinc-400"
-                )} />
-                <span className="font-medium">Rentals</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {profile?.role !== "ADMIN" && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={activeTab === "rentals"}
+                  onClick={() => navigate("/dashboard")}
+                  tooltip="Rentals"
+                  className={cn(
+                    "h-14 rounded-xl transition-all duration-200",
+                    activeTab === "rentals"
+                      ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/20 font-semibold"
+                      : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                  )}
+                >
+                  <Building2 className={cn(
+                    state === "collapsed" ? "h-7 w-7" : "h-5 w-5",
+                    activeTab === "rentals" ? "text-white" : "text-zinc-400"
+                  )} />
+                  <span className="font-medium">Rentals</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
 
-            {isCEOorCOO && (
+            {profile?.role !== "ADMIN" && isCEOorCOO && (
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={activeTab === "add"}
@@ -205,7 +233,7 @@ const DashboardLayoutContent = () => {
               </SidebarMenuItem>
             )}
 
-            {profile?.user_roles?.some((ur: any) => ur.role === "CEO") && (
+            {profile?.role !== "ADMIN" && isCEOorCOO && (
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={activeTab === "audit"}
@@ -223,6 +251,27 @@ const DashboardLayoutContent = () => {
                     activeTab === "audit" ? "text-white" : "text-zinc-400"
                   )} />
                   <span className="font-medium">Audit Log</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+            {profile?.role === "ADMIN" && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={activeTab === "admin"}
+                  onClick={() => navigate("/dashboard/admin")}
+                  tooltip="System Admin"
+                  className={cn(
+                    "h-14 rounded-xl transition-all duration-200",
+                    activeTab === "admin"
+                      ? "bg-purple-600/90 text-white shadow-lg shadow-purple-900/20 font-semibold"
+                      : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                  )}
+                >
+                  <ShieldCheck className={cn(
+                    state === "collapsed" ? "h-7 w-7" : "h-5 w-5",
+                    activeTab === "admin" ? "text-white" : "text-zinc-400"
+                  )} />
+                  <span className="font-medium">System Admin</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )}
@@ -301,7 +350,14 @@ const DashboardLayoutContent = () => {
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{profile?.full_name}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {profile?.user_roles?.[0]?.role || "Employee"}
+                      {(() => {
+                        const r = profile?.role || profile?.user_roles?.[0]?.role || "Employee";
+                        if (r.toUpperCase() === "EMPLOYEE") return "Employee";
+                        if (r.toUpperCase() === "CEO") return "CEO";
+                        if (r.toUpperCase() === "COO") return "COO";
+                        if (r.toUpperCase() === "ADMIN") return "System Admin";
+                        return r;
+                      })()}
                     </p>
                   </div>
                 </DropdownMenuLabel>
