@@ -20,6 +20,8 @@ const rentalSchema = z.object({
   timbers: z.number().min(0, "Must be 0 or greater"),
   connectors: z.number().min(0, "Must be 0 or greater"),
   legs: z.number().min(0, "Must be 0 or greater"),
+  ladders: z.number().min(0, "Must be 0 or greater"),
+  joints: z.number().min(0, "Must be 0 or greater"),
   price_per_scaffolding: z.number().min(0, "Must be 0 or greater"),
   expected_days: z.number().min(1, "Must be at least 1 day"),
   paid_days: z.number().min(0, "Must be 0 or greater"),
@@ -31,24 +33,26 @@ export const RentalForm = () => {
   const [loading, setLoading] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [profile, setProfile] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchUserRole = async () => {
+    const fetchUserProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: roles } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
           .single();
-        if (roles) {
-          setUserRole(roles.role);
+        if (profile) {
+          setUserRole(profile.role);
+          setProfile(profile);
         }
       }
     };
-    fetchUserRole();
+    fetchUserProfile();
   }, []);
 
   const [formData, setFormData] = useState({
@@ -62,6 +66,8 @@ export const RentalForm = () => {
     timbers: 0,
     connectors: 0,
     legs: 0,
+    ladders: 0,
+    joints: 0,
     tubes_6m: 0,
     tubes_4m: 0,
     tubes_3m: 0,
@@ -223,6 +229,8 @@ export const RentalForm = () => {
           timbers: formData.timbers,
           connectors: formData.connectors,
           legs: formData.legs,
+          ladders: formData.ladders || null,
+          joints: formData.joints || null,
           tubes_6m: formData.tubes_6m || null,
           tubes_4m: formData.tubes_4m || null,
           tubes_3m: formData.tubes_3m || null,
@@ -250,6 +258,7 @@ export const RentalForm = () => {
         .from("inventory")
         .select("available_stock")
         .eq("item_name", "Scaffoldings")
+        .eq("organization_id", profile.organization_id)
         .maybeSingle();
 
       if (currentInventory) {
@@ -258,7 +267,8 @@ export const RentalForm = () => {
           .update({ 
             available_stock: Math.max(0, currentInventory.available_stock - numScaffoldings) 
           })
-          .eq("item_name", "Scaffoldings");
+          .eq("item_name", "Scaffoldings")
+          .eq("organization_id", profile.organization_id);
       }
 
       toast({
@@ -399,10 +409,10 @@ export const RentalForm = () => {
           <CardTitle>Extra Equipment (Optional)</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {["tubes_6m", "tubes_4m", "tubes_3m", "tubes_1m"].map((field) => (
+          {["ladders", "joints", "tubes_6m", "tubes_4m", "tubes_3m", "tubes_1m"].map((field) => (
             <div key={field}>
               <Label htmlFor={field}>
-                {field.replace("_", " ").toUpperCase()}
+                {field.replace(/_/g, " ").toUpperCase()}
               </Label>
               <Input
                 id={field}

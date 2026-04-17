@@ -159,6 +159,8 @@ export type Database = {
           document_image_url: string | null
           expected_days: number
           id: string
+          joints: number | null
+          ladders: number | null
           legs: number
           num_chopsticks: number
           num_scaffoldings: number
@@ -170,6 +172,8 @@ export type Database = {
           province: string | null
           rented_date: string
           returned_connectors: number | null
+          returned_joints: number | null
+          returned_ladders: number | null
           returned_date: string | null
           returned_legs: number | null
           returned_num_chopsticks: number | null
@@ -209,6 +213,8 @@ export type Database = {
           plate_number?: string | null
           plates: number
           price_per_scaffolding: number
+          ladders?: number | null
+          joints?: number | null
           province?: string | null
           rented_date?: string
           returned_connectors?: number | null
@@ -251,6 +257,8 @@ export type Database = {
           plate_number?: string | null
           plates?: number
           price_per_scaffolding?: number
+          ladders?: number | null
+          joints?: number | null
           province?: string | null
           rented_date?: string
           returned_connectors?: number | null

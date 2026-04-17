@@ -384,7 +384,7 @@ const DashboardLayoutContent = () => {
 
         <main ref={mainRef} className="flex-1 overflow-auto bg-muted/20">
           <div className="p-4 md:p-8 max-w-7xl mx-auto">
-            <Outlet context={{ searchQuery, setSearchQuery }} />
+            <Outlet context={{ searchQuery, setSearchQuery, profile }} />
           </div>
         </main>
       </div>

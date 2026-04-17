@@ -394,7 +394,7 @@ const RentalCard = ({
 
 const Dashboard = () => {
 
-  const { searchQuery } = useOutletContext<{ searchQuery: string }>();
+  const { searchQuery, setSearchQuery, profile } = useOutletContext<{ searchQuery: string; setSearchQuery: React.Dispatch<React.SetStateAction<string>>; profile: any }>();
   const [rentals, setRentals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRental, setSelectedRental] = useState<any | null>(null);
@@ -413,6 +413,7 @@ const Dashboard = () => {
     const { data, error } = await supabase
       .from("inventory")
       .select("*")
+      .eq("organization_id", profile?.organization_id)
       .order("item_name");
 
     if (error) {
@@ -420,7 +421,7 @@ const Dashboard = () => {
     } else {
       setInventory(data || []);
     }
-  }, []);
+  }, [profile?.organization_id]);
 
   const fetchRentals = React.useCallback(async () => {
     setLoading(true);
@@ -431,6 +432,7 @@ const Dashboard = () => {
         clients (*),
         profiles (*)
       `)
+      .eq("organization_id", profile?.organization_id)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -443,7 +445,7 @@ const Dashboard = () => {
       setRentals(data || []);
     }
     setLoading(false);
-  }, [toast]);
+  }, [toast, profile?.organization_id]);
 
   useEffect(() => {
     fetchRentals();
@@ -581,8 +583,9 @@ const Dashboard = () => {
       .upsert({
         item_name: "Scaffoldings",
         total_stock: stock,
-        available_stock: stock
-      }, { onConflict: 'item_name' });
+        available_stock: stock,
+        organization_id: profile.organization_id
+      }, { onConflict: ['organization_id', 'item_name'] });
 
     if (error) {
       console.error("Upsert error:", error);
@@ -649,6 +652,16 @@ const Dashboard = () => {
           icon={CheckCircle2}
           color="bg-emerald-500"
           subtext="Ready for new rentals"
+        />
+      </div>
+
+      <div className="block md:hidden mt-4">
+        <Input
+          type="search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search rented or returned rentals"
+          className="w-full"
         />
       </div>
 
@@ -782,6 +795,24 @@ const Dashboard = () => {
                     <p className="font-medium">{selectedRentalForDetails.num_chopsticks} (Returned: {selectedRentalForDetails.returned_num_chopsticks || 0})</p>
                     <p className="text-muted-foreground">Plates:</p>
                     <p className="font-medium">{selectedRentalForDetails.plates} (Returned: {selectedRentalForDetails.returned_plates || 0})</p>
+                    <p className="text-muted-foreground">Timbers:</p>
+                    <p className="font-medium">{selectedRentalForDetails.timbers} (Returned: {selectedRentalForDetails.returned_timbers || 0})</p>
+                    <p className="text-muted-foreground">Connectors:</p>
+                    <p className="font-medium">{selectedRentalForDetails.connectors} (Returned: {selectedRentalForDetails.returned_connectors || 0})</p>
+                    <p className="text-muted-foreground">Legs:</p>
+                    <p className="font-medium">{selectedRentalForDetails.legs} (Returned: {selectedRentalForDetails.returned_legs || 0})</p>
+                    <p className="text-muted-foreground">Tubes 6m:</p>
+                    <p className="font-medium">{selectedRentalForDetails.tubes_6m || 0} (Returned: {selectedRentalForDetails.returned_tubes_6m || 0})</p>
+                    <p className="text-muted-foreground">Tubes 4m:</p>
+                    <p className="font-medium">{selectedRentalForDetails.tubes_4m || 0} (Returned: {selectedRentalForDetails.returned_tubes_4m || 0})</p>
+                    <p className="text-muted-foreground">Tubes 3m:</p>
+                    <p className="font-medium">{selectedRentalForDetails.tubes_3m || 0} (Returned: {selectedRentalForDetails.returned_tubes_3m || 0})</p>
+                    <p className="text-muted-foreground">Tubes 1m:</p>
+                    <p className="font-medium">{selectedRentalForDetails.tubes_1m || 0} (Returned: {selectedRentalForDetails.returned_tubes_1m || 0})</p>
+                    <p className="text-muted-foreground">Ladders:</p>
+                    <p className="font-medium">{selectedRentalForDetails.ladders || 0}</p>
+                    <p className="text-muted-foreground">Joints:</p>
+                    <p className="font-medium">{selectedRentalForDetails.joints || 0}</p>
                   </div>
                 </div>
 
