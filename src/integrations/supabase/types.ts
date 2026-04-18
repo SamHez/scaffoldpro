@@ -185,6 +185,7 @@ export type Database = {
           returned_tubes_4m: number | null
           returned_tubes_6m: number | null
           status: Database["public"]["Enums"]["rental_status"]
+          station: string | null
           timbers: number
           total_paid: number | null
           tubes_1m: number | null
@@ -224,11 +225,14 @@ export type Database = {
           returned_num_scaffoldings?: number | null
           returned_plates?: number | null
           returned_timbers?: number | null
+          returned_ladders?: number | null
+          returned_joints?: number | null
           returned_tubes_1m?: number | null
           returned_tubes_3m?: number | null
           returned_tubes_4m?: number | null
           returned_tubes_6m?: number | null
           status?: Database["public"]["Enums"]["rental_status"]
+          station?: string | null
           timbers: number
           total_paid?: number | null
           tubes_1m?: number | null
@@ -268,11 +272,14 @@ export type Database = {
           returned_num_scaffoldings?: number | null
           returned_plates?: number | null
           returned_timbers?: number | null
+          returned_ladders?: number | null
+          returned_joints?: number | null
           returned_tubes_1m?: number | null
           returned_tubes_3m?: number | null
           returned_tubes_4m?: number | null
           returned_tubes_6m?: number | null
           status?: Database["public"]["Enums"]["rental_status"]
+          station?: string | null
           timbers?: number
           total_paid?: number | null
           tubes_1m?: number | null

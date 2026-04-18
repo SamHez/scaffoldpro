@@ -22,6 +22,7 @@ const rentalSchema = z.object({
   legs: z.number().min(0, "Must be 0 or greater"),
   ladders: z.number().min(0, "Must be 0 or greater"),
   joints: z.number().min(0, "Must be 0 or greater"),
+  station: z.string().optional(),
   price_per_scaffolding: z.number().min(0, "Must be 0 or greater"),
   expected_days: z.number().min(1, "Must be at least 1 day"),
   paid_days: z.number().min(0, "Must be 0 or greater"),
@@ -68,6 +69,7 @@ export const RentalForm = () => {
     legs: 0,
     ladders: 0,
     joints: 0,
+    station: "",
     tubes_6m: 0,
     tubes_4m: 0,
     tubes_3m: 0,
@@ -231,6 +233,7 @@ export const RentalForm = () => {
           legs: formData.legs,
           ladders: formData.ladders || null,
           joints: formData.joints || null,
+          station: formData.station || null,
           tubes_6m: formData.tubes_6m || null,
           tubes_4m: formData.tubes_4m || null,
           tubes_3m: formData.tubes_3m || null,
@@ -423,6 +426,15 @@ export const RentalForm = () => {
               />
             </div>
           ))}
+          <div>
+            <Label htmlFor="station">Station</Label>
+            <Input
+              id="station"
+              value={formData.station}
+              onChange={(e) => setFormData({ ...formData, station: e.target.value })}
+              placeholder="Enter station"
+            />
+          </div>
         </CardContent>
       </Card>
 

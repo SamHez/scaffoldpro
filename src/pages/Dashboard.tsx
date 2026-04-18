@@ -300,6 +300,8 @@ const RentalCard = ({
                       returned_timbers: rental.returned_timbers || 0,
                       returned_connectors: rental.returned_connectors || 0,
                       returned_legs: rental.returned_legs || 0,
+                      returned_ladders: rental.returned_ladders || 0,
+                      returned_joints: rental.returned_joints || 0,
                       returned_tubes_6m: rental.returned_tubes_6m || 0,
                       returned_tubes_4m: rental.returned_tubes_4m || 0,
                       returned_tubes_3m: rental.returned_tubes_3m || 0,
@@ -349,6 +351,22 @@ const RentalCard = ({
                         type="number"
                         value={returnData.returned_plates || 0}
                         onChange={(e) => setReturnData({ ...returnData, returned_plates: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Returned Ladders (of {rental.ladders || 0})</Label>
+                      <Input
+                        type="number"
+                        value={returnData.returned_ladders || 0}
+                        onChange={(e) => setReturnData({ ...returnData, returned_ladders: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Returned Joints (of {rental.joints || 0})</Label>
+                      <Input
+                        type="number"
+                        value={returnData.returned_joints || 0}
+                        onChange={(e) => setReturnData({ ...returnData, returned_joints: parseInt(e.target.value) || 0 })}
                       />
                     </div>
                   </div>
@@ -527,7 +545,9 @@ const Dashboard = () => {
         (returnData.returned_plates || 0) >= selectedRental.plates &&
         (returnData.returned_timbers || 0) >= selectedRental.timbers &&
         (returnData.returned_connectors || 0) >= selectedRental.connectors &&
-        (returnData.returned_legs || 0) >= selectedRental.legs;
+        (returnData.returned_legs || 0) >= selectedRental.legs &&
+        (returnData.returned_ladders || 0) >= (selectedRental.ladders || 0) &&
+        (returnData.returned_joints || 0) >= (selectedRental.joints || 0);
 
       const { error } = await supabase
         .from("rentals")
@@ -538,6 +558,8 @@ const Dashboard = () => {
           returned_timbers: returnData.returned_timbers || 0,
           returned_connectors: returnData.returned_connectors || 0,
           returned_legs: returnData.returned_legs || 0,
+          returned_ladders: returnData.returned_ladders || 0,
+          returned_joints: returnData.returned_joints || 0,
           returned_tubes_6m: returnData.returned_tubes_6m || 0,
           returned_tubes_4m: returnData.returned_tubes_4m || 0,
           returned_tubes_3m: returnData.returned_tubes_3m || 0,
@@ -813,6 +835,8 @@ const Dashboard = () => {
                     <p className="font-medium">{selectedRentalForDetails.ladders || 0}</p>
                     <p className="text-muted-foreground">Joints:</p>
                     <p className="font-medium">{selectedRentalForDetails.joints || 0}</p>
+                    <p className="text-muted-foreground">Station:</p>
+                    <p className="font-medium">{selectedRentalForDetails.station || "N/A"}</p>
                   </div>
                 </div>
 
