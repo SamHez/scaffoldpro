@@ -302,6 +302,7 @@ const RentalCard = ({
                       returned_legs: rental.returned_legs || 0,
                       returned_ladders: rental.returned_ladders || 0,
                       returned_joints: rental.returned_joints || 0,
+                      returned_wheels: rental.returned_wheels || 0,
                       returned_tubes_6m: rental.returned_tubes_6m || 0,
                       returned_tubes_4m: rental.returned_tubes_4m || 0,
                       returned_tubes_3m: rental.returned_tubes_3m || 0,
@@ -367,6 +368,14 @@ const RentalCard = ({
                         type="number"
                         value={returnData.returned_joints || 0}
                         onChange={(e) => setReturnData({ ...returnData, returned_joints: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Returned Wheels (of {rental.wheels || 0})</Label>
+                      <Input
+                        type="number"
+                        value={returnData.returned_wheels || 0}
+                        onChange={(e) => setReturnData({ ...returnData, returned_wheels: parseInt(e.target.value) || 0 })}
                       />
                     </div>
                   </div>
@@ -512,6 +521,9 @@ const Dashboard = () => {
         returned_timbers: rental.timbers,
         returned_connectors: rental.connectors,
         returned_legs: rental.legs,
+        returned_ladders: rental.ladders || 0,
+        returned_joints: rental.joints || 0,
+        returned_wheels: rental.wheels || 0,
         returned_tubes_6m: rental.tubes_6m,
         returned_tubes_4m: rental.tubes_4m,
         returned_tubes_3m: rental.tubes_3m,
@@ -547,7 +559,8 @@ const Dashboard = () => {
         (returnData.returned_connectors || 0) >= selectedRental.connectors &&
         (returnData.returned_legs || 0) >= selectedRental.legs &&
         (returnData.returned_ladders || 0) >= (selectedRental.ladders || 0) &&
-        (returnData.returned_joints || 0) >= (selectedRental.joints || 0);
+        (returnData.returned_joints || 0) >= (selectedRental.joints || 0) &&
+        (returnData.returned_wheels || 0) >= (selectedRental.wheels || 0);
 
       const { error } = await supabase
         .from("rentals")
@@ -560,6 +573,7 @@ const Dashboard = () => {
           returned_legs: returnData.returned_legs || 0,
           returned_ladders: returnData.returned_ladders || 0,
           returned_joints: returnData.returned_joints || 0,
+          returned_wheels: returnData.returned_wheels || 0,
           returned_tubes_6m: returnData.returned_tubes_6m || 0,
           returned_tubes_4m: returnData.returned_tubes_4m || 0,
           returned_tubes_3m: returnData.returned_tubes_3m || 0,
@@ -832,9 +846,11 @@ const Dashboard = () => {
                     <p className="text-muted-foreground">Tubes 1m:</p>
                     <p className="font-medium">{selectedRentalForDetails.tubes_1m || 0} (Returned: {selectedRentalForDetails.returned_tubes_1m || 0})</p>
                     <p className="text-muted-foreground">Ladders:</p>
-                    <p className="font-medium">{selectedRentalForDetails.ladders || 0}</p>
+                    <p className="font-medium">{selectedRentalForDetails.ladders || 0} (Returned: {selectedRentalForDetails.returned_ladders || 0})</p>
                     <p className="text-muted-foreground">Joints:</p>
-                    <p className="font-medium">{selectedRentalForDetails.joints || 0}</p>
+                    <p className="font-medium">{selectedRentalForDetails.joints || 0} (Returned: {selectedRentalForDetails.returned_joints || 0})</p>
+                    <p className="text-muted-foreground">Wheels:</p>
+                    <p className="font-medium">{selectedRentalForDetails.wheels || 0} (Returned: {selectedRentalForDetails.returned_wheels || 0})</p>
                     <p className="text-muted-foreground">Station:</p>
                     <p className="font-medium">{selectedRentalForDetails.station || "N/A"}</p>
                   </div>

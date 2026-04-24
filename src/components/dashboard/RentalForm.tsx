@@ -14,14 +14,15 @@ const rentalSchema = z.object({
   nickname: z.string().optional(),
   id_tin_no: z.string().min(1, "ID/TIN No is required"),
   phone: z.string().length(10, "Phone must be exactly 10 digits").regex(/^\d+$/, "Phone must contain only digits"),
-  num_scaffoldings: z.number().min(0, "Must be 0 or greater"),
-  num_chopsticks: z.number().min(0, "Must be 0 or greater"),
-  plates: z.number().min(0, "Must be 0 or greater"),
-  timbers: z.number().min(0, "Must be 0 or greater"),
-  connectors: z.number().min(0, "Must be 0 or greater"),
-  legs: z.number().min(0, "Must be 0 or greater"),
-  ladders: z.number().min(0, "Must be 0 or greater"),
-  joints: z.number().min(0, "Must be 0 or greater"),
+  num_scaffoldings: z.number().min(0).default(0),
+  num_chopsticks: z.number().min(0).default(0),
+  plates: z.number().min(0).default(0),
+  timbers: z.number().min(0).default(0),
+  connectors: z.number().min(0).default(0),
+  legs: z.number().min(0).default(0),
+  ladders: z.number().min(0).default(0),
+  joints: z.number().min(0).default(0),
+  wheels: z.number().min(0).default(0),
   station: z.string().optional(),
   price_per_scaffolding: z.number().min(0, "Must be 0 or greater"),
   expected_days: z.number().min(1, "Must be at least 1 day"),
@@ -69,6 +70,7 @@ export const RentalForm = () => {
     legs: 0,
     ladders: 0,
     joints: 0,
+    wheels: 0,
     station: "",
     tubes_6m: 0,
     tubes_4m: 0,
@@ -109,16 +111,7 @@ export const RentalForm = () => {
         return;
       }
 
-      // Validate mandatory fields even if image is uploaded
-      if (!formData.num_scaffoldings || formData.num_scaffoldings <= 0) {
-        toast({
-          title: "Validation Error",
-          description: "Number of scaffoldings must be greater than 0",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
+      // Equipment is now optional
 
       if (!formData.price_per_scaffolding || formData.price_per_scaffolding <= 0) {
         toast({
@@ -231,13 +224,14 @@ export const RentalForm = () => {
           timbers: formData.timbers,
           connectors: formData.connectors,
           legs: formData.legs,
-          ladders: formData.ladders || null,
-          joints: formData.joints || null,
+          ladders: formData.ladders || 0,
+          joints: formData.joints || 0,
+          wheels: formData.wheels || 0,
           station: formData.station || null,
-          tubes_6m: formData.tubes_6m || null,
-          tubes_4m: formData.tubes_4m || null,
-          tubes_3m: formData.tubes_3m || null,
-          tubes_1m: formData.tubes_1m || null,
+          tubes_6m: formData.tubes_6m || 0,
+          tubes_4m: formData.tubes_4m || 0,
+          tubes_3m: formData.tubes_3m || 0,
+          tubes_1m: formData.tubes_1m || 0,
           price_per_scaffolding: pricePerScaffolding,
           expected_days: expectedDays,
           paid_days: paidDays,
@@ -386,36 +380,27 @@ export const RentalForm = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Equipment (Mandatory)</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {["num_scaffoldings", "num_chopsticks", "plates", "timbers", "connectors", "legs"].map((field) => (
-            <div key={field}>
-              <Label htmlFor={field}>
-                {field.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")} {!uploadedImage && "*"}
-              </Label>
-              <Input
-                id={field}
-                type="number"
-                required={!uploadedImage}
-                min="0"
-                value={(formData as any)[field]}
-                onChange={(e) => setFormData({ ...formData, [field]: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Extra Equipment (Optional)</CardTitle>
+          <CardTitle>Equipment</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {["ladders", "joints", "tubes_6m", "tubes_4m", "tubes_3m", "tubes_1m"].map((field) => (
+          {[
+            "num_scaffoldings",
+            "num_chopsticks",
+            "plates",
+            "timbers",
+            "connectors",
+            "legs",
+            "ladders",
+            "joints",
+            "wheels",
+            "tubes_6m",
+            "tubes_4m",
+            "tubes_3m",
+            "tubes_1m"
+          ].map((field) => (
             <div key={field}>
               <Label htmlFor={field}>
-                {field.replace(/_/g, " ").toUpperCase()}
+                {field.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")}
               </Label>
               <Input
                 id={field}

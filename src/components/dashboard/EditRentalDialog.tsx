@@ -42,6 +42,10 @@ export const EditRentalDialog = ({
                 timbers: rental.timbers || 0,
                 connectors: rental.connectors || 0,
                 legs: rental.legs || 0,
+                ladders: rental.ladders || 0,
+                joints: rental.joints || 0,
+                wheels: rental.wheels || 0,
+                station: rental.station || "",
                 tubes_6m: rental.tubes_6m || 0,
                 tubes_4m: rental.tubes_4m || 0,
                 tubes_3m: rental.tubes_3m || 0,
@@ -95,6 +99,10 @@ export const EditRentalDialog = ({
                     timbers: formData.timbers,
                     connectors: formData.connectors,
                     legs: formData.legs,
+                    ladders: formData.ladders,
+                    joints: formData.joints,
+                    wheels: formData.wheels,
+                    station: formData.station,
                     tubes_6m: formData.tubes_6m,
                     tubes_4m: formData.tubes_4m,
                     tubes_3m: formData.tubes_3m,
@@ -208,9 +216,23 @@ export const EditRentalDialog = ({
                     <div className="space-y-4 md:col-span-2">
                         <h3 className="font-semibold border-b pb-1">Equipment</h3>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            {["scaffoldings", "chopsticks", "plates", "timbers", "connectors", "legs"].map((field) => (
+                            {[
+                                "scaffoldings",
+                                "chopsticks",
+                                "plates",
+                                "timbers",
+                                "connectors",
+                                "legs",
+                                "ladders",
+                                "joints",
+                                "wheels",
+                                "tubes_6m",
+                                "tubes_4m",
+                                "tubes_3m",
+                                "tubes_1m"
+                            ].map((field) => (
                                 <div key={field}>
-                                    <Label className="capitalize">{field}</Label>
+                                    <Label className="capitalize">{field.replace(/_/g, " ")}</Label>
                                     <Input
                                         type="number"
                                         value={formData[`num_${field}`] ?? formData[field] ?? 0}
@@ -221,6 +243,13 @@ export const EditRentalDialog = ({
                                     />
                                 </div>
                             ))}
+                            <div>
+                                <Label>Station</Label>
+                                <Input
+                                    value={formData.station}
+                                    onChange={(e) => setFormData({ ...formData, station: e.target.value })}
+                                />
+                            </div>
                         </div>
                     </div>
 
