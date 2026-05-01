@@ -355,6 +355,30 @@ const RentalCard = ({
                       />
                     </div>
                     <div>
+                      <Label>Returned Timbers (of {rental.timbers || 0})</Label>
+                      <Input
+                        type="number"
+                        value={returnData.returned_timbers || 0}
+                        onChange={(e) => setReturnData({ ...returnData, returned_timbers: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Returned Connectors (of {rental.connectors || 0})</Label>
+                      <Input
+                        type="number"
+                        value={returnData.returned_connectors || 0}
+                        onChange={(e) => setReturnData({ ...returnData, returned_connectors: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Returned Legs (of {rental.legs || 0})</Label>
+                      <Input
+                        type="number"
+                        value={returnData.returned_legs || 0}
+                        onChange={(e) => setReturnData({ ...returnData, returned_legs: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
                       <Label>Returned Ladders (of {rental.ladders || 0})</Label>
                       <Input
                         type="number"
@@ -376,6 +400,38 @@ const RentalCard = ({
                         type="number"
                         value={returnData.returned_wheels || 0}
                         onChange={(e) => setReturnData({ ...returnData, returned_wheels: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Returned Tubes 6m (of {rental.tubes_6m || 0})</Label>
+                      <Input
+                        type="number"
+                        value={returnData.returned_tubes_6m || 0}
+                        onChange={(e) => setReturnData({ ...returnData, returned_tubes_6m: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Returned Tubes 4m (of {rental.tubes_4m || 0})</Label>
+                      <Input
+                        type="number"
+                        value={returnData.returned_tubes_4m || 0}
+                        onChange={(e) => setReturnData({ ...returnData, returned_tubes_4m: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Returned Tubes 3m (of {rental.tubes_3m || 0})</Label>
+                      <Input
+                        type="number"
+                        value={returnData.returned_tubes_3m || 0}
+                        onChange={(e) => setReturnData({ ...returnData, returned_tubes_3m: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Returned Tubes 1m (of {rental.tubes_1m || 0})</Label>
+                      <Input
+                        type="number"
+                        value={returnData.returned_tubes_1m || 0}
+                        onChange={(e) => setReturnData({ ...returnData, returned_tubes_1m: parseInt(e.target.value) || 0 })}
                       />
                     </div>
                   </div>
@@ -555,12 +611,16 @@ const Dashboard = () => {
         (returnData.returned_num_scaffoldings || 0) >= selectedRental.num_scaffoldings &&
         (returnData.returned_num_chopsticks || 0) >= selectedRental.num_chopsticks &&
         (returnData.returned_plates || 0) >= selectedRental.plates &&
-        (returnData.returned_timbers || 0) >= selectedRental.timbers &&
-        (returnData.returned_connectors || 0) >= selectedRental.connectors &&
-        (returnData.returned_legs || 0) >= selectedRental.legs &&
+        (returnData.returned_timbers || 0) >= (selectedRental.timbers || 0) &&
+        (returnData.returned_connectors || 0) >= (selectedRental.connectors || 0) &&
+        (returnData.returned_legs || 0) >= (selectedRental.legs || 0) &&
         (returnData.returned_ladders || 0) >= (selectedRental.ladders || 0) &&
         (returnData.returned_joints || 0) >= (selectedRental.joints || 0) &&
-        (returnData.returned_wheels || 0) >= (selectedRental.wheels || 0);
+        (returnData.returned_wheels || 0) >= (selectedRental.wheels || 0) &&
+        (returnData.returned_tubes_6m || 0) >= (selectedRental.tubes_6m || 0) &&
+        (returnData.returned_tubes_4m || 0) >= (selectedRental.tubes_4m || 0) &&
+        (returnData.returned_tubes_3m || 0) >= (selectedRental.tubes_3m || 0) &&
+        (returnData.returned_tubes_1m || 0) >= (selectedRental.tubes_1m || 0);
 
       const { error } = await supabase
         .from("rentals")
