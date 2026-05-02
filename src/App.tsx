@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import AddRental from "./pages/AddRental";
 import AuditLog from "./pages/AuditLog";
 import Admin from "./pages/Admin";
+import Clients from "./pages/Clients";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="add" element={<AddRental />} />
+            <Route path="clients" element={<Clients />} />
             <Route path="audit" element={<AuditLog />} />
             <Route path="admin" element={<Admin />} />
           </Route>

@@ -139,6 +139,7 @@ const DashboardLayoutContent = () => {
     const path = location.pathname;
     if (path === "/dashboard") return "rentals";
     if (path === "/dashboard/add") return "add";
+    if (path === "/dashboard/clients") return "clients";
     if (path === "/dashboard/audit") return "audit";
     if (path === "/dashboard/admin") return "admin";
     return "";
@@ -148,6 +149,7 @@ const DashboardLayoutContent = () => {
     const path = location.pathname;
     if (path === "/dashboard") return "Dashboard";
     if (path === "/dashboard/add") return "Add Rental";
+    if (path === "/dashboard/clients") return "Manage Clients";
     if (path === "/dashboard/audit") return "Audit Log";
     if (path === "/dashboard/admin") return "System Admin";
     return "ScaffoldPro";
@@ -169,8 +171,8 @@ const DashboardLayoutContent = () => {
     profile?.user_roles?.some((ur: any) => ur.role === "CEO" || ur.role === "COO");
 
   return (
-    <div className="flex min-h-screen w-full bg-background overflow-hidden">
-      <Sidebar collapsible="icon" className="glass-grey border-none shadow-2xl transition-all duration-300">
+    <div className="flex min-h-screen w-full bg-background overflow-hidden font-['Manrope',sans-serif]">
+      <Sidebar collapsible="icon" className="glass-grey border-none shadow-2xl transition-all duration-300 font-['Outfit',sans-serif]">
         <SidebarHeader className="h-[72px] flex items-center justify-center p-0 transition-all duration-300 border-b border-white/5 bg-black/20">
           <div className={cn(
             "flex items-center justify-center w-full h-full transition-all duration-300",
@@ -196,10 +198,10 @@ const DashboardLayoutContent = () => {
                   onClick={() => navigate("/dashboard")}
                   tooltip="Rentals"
                   className={cn(
-                    "h-14 rounded-xl transition-all duration-200",
+                    "h-14 rounded-2xl transition-all duration-200 border-2",
                     activeTab === "rentals"
-                      ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/20 font-semibold"
-                      : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                      ? "border-emerald-500 bg-emerald-500/10 text-white font-bold shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                      : "border-transparent text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
                   )}
                 >
                   <Building2 className={cn(
@@ -218,10 +220,10 @@ const DashboardLayoutContent = () => {
                   onClick={() => navigate("/dashboard/add")}
                   tooltip="Add Rental"
                   className={cn(
-                    "h-14 rounded-xl transition-all duration-200",
+                    "h-14 rounded-2xl transition-all duration-200 border-2",
                     activeTab === "add"
-                      ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/20 font-semibold"
-                      : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                      ? "border-emerald-500 bg-emerald-500/10 text-white font-bold shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                      : "border-transparent text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
                   )}
                 >
                   <Plus className={cn(
@@ -236,14 +238,36 @@ const DashboardLayoutContent = () => {
             {profile?.role !== "ADMIN" && isCEOorCOO && (
               <SidebarMenuItem>
                 <SidebarMenuButton
+                  isActive={activeTab === "clients"}
+                  onClick={() => navigate("/dashboard/clients")}
+                  tooltip="Clients"
+                  className={cn(
+                    "h-14 rounded-2xl transition-all duration-200 border-2",
+                    activeTab === "clients"
+                      ? "border-emerald-500 bg-emerald-500/10 text-white font-bold shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                      : "border-transparent text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                  )}
+                >
+                  <Users className={cn(
+                    state === "collapsed" ? "h-7 w-7" : "h-5 w-5",
+                    activeTab === "clients" ? "text-white" : "text-zinc-400"
+                  )} />
+                  <span className="font-medium">Clients</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+
+            {profile?.role !== "ADMIN" && isCEOorCOO && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
                   isActive={activeTab === "audit"}
                   onClick={() => navigate("/dashboard/audit")}
                   tooltip="Audit Log"
                   className={cn(
-                    "h-14 rounded-xl transition-all duration-200",
+                    "h-14 rounded-2xl transition-all duration-200 border-2",
                     activeTab === "audit"
-                      ? "bg-emerald-600/90 text-white shadow-lg shadow-emerald-900/20 font-semibold"
-                      : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                      ? "border-emerald-500 bg-emerald-500/10 text-white font-bold shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                      : "border-transparent text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
                   )}
                 >
                   <FileText className={cn(
@@ -261,10 +285,10 @@ const DashboardLayoutContent = () => {
                   onClick={() => navigate("/dashboard/admin")}
                   tooltip="System Admin"
                   className={cn(
-                    "h-14 rounded-xl transition-all duration-200",
+                    "h-14 rounded-2xl transition-all duration-200 border-2",
                     activeTab === "admin"
-                      ? "bg-purple-600/90 text-white shadow-lg shadow-purple-900/20 font-semibold"
-                      : "text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
+                      ? "border-emerald-500 bg-emerald-500/10 text-white font-bold shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                      : "border-transparent text-zinc-400 hover:text-zinc-100 hover:bg-white/5"
                   )}
                 >
                   <ShieldCheck className={cn(

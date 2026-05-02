@@ -121,6 +121,28 @@ export const EditRentalDialog = ({
 
             if (rentalError) throw rentalError;
 
+            // Update inventory if scaffoldings count changed
+            const oldNum = rental.num_scaffoldings || 0;
+            const newNum = formData.num_scaffoldings || 0;
+            
+            if (oldNum !== newNum) {
+                const diff = newNum - oldNum;
+                const { data: invData } = await supabase
+                    .from("inventory")
+                    .select("available_stock")
+                    .eq("item_name", "Scaffoldings")
+                    .single();
+                
+                if (invData) {
+                    await supabase
+                        .from("inventory")
+                        .update({
+                            available_stock: Math.max(0, invData.available_stock - diff)
+                        })
+                        .eq("item_name", "Scaffoldings");
+                }
+            }
+
             toast({
                 title: "Success",
                 description: "Rental updated successfully",

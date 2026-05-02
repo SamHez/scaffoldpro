@@ -7,7 +7,21 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
-import { Upload } from "lucide-react";
+import { Upload, Users, UserPlus, Check, ChevronsUpDown, Search } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const rentalSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -36,25 +50,39 @@ export const RentalForm = () => {
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [clients, setClients] = useState<any[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [isNewClient, setIsNewClient] = useState(true);
+  const [openClientSelect, setOpenClientSelect] = useState(false);
+  
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase
+        const { data: profileData } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", user.id)
           .single();
-        if (profile) {
-          setUserRole(profile.role);
-          setProfile(profile);
+          
+        if (profileData) {
+          setUserRole(profileData.role);
+          setProfile(profileData);
+          
+          // Fetch clients for this organization
+          const { data: clientsData } = await supabase
+            .from("clients")
+            .select("*")
+            .eq("organization_id", profileData.organization_id)
+            .order("name");
+          setClients(clientsData || []);
         }
       }
     };
-    fetchUserProfile();
+    fetchData();
   }, []);
 
   const [formData, setFormData] = useState({
@@ -86,13 +114,57 @@ export const RentalForm = () => {
     vehicle_type: "",
     plate_number: "",
     rented_date: new Date().toISOString().split('T')[0],
+    billable_days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
   });
+
+  const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  const toggleBillableDay = (day: string) => {
+    setFormData(prev => ({
+      ...prev,
+      billable_days: prev.billable_days.includes(day)
+        ? prev.billable_days.filter(d => d !== day)
+        : [...prev.billable_days, day]
+    }));
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setUploadedImage(file);
     }
+  };
+
+  const handleSelectClient = (clientId: string) => {
+    const client = clients.find(c => c.id === clientId);
+    if (client) {
+      setSelectedClientId(client.id);
+      setIsNewClient(false);
+      setFormData({
+        ...formData,
+        name: client.name,
+        nickname: client.nickname || "",
+        phone: client.phone || "",
+        id_tin_no: client.id_tin_no || "",
+      });
+    }
+    setOpenClientSelect(false);
+  };
+
+  const handleToggleNewClient = () => {
+    setIsNewClient(true);
+    setSelectedClientId(null);
+    setFormData({
+      ...formData,
+      name: "",
+      nickname: "",
+      phone: "",
+      id_tin_no: "",
+    });
+    toast({
+      title: "New Client Mode",
+      description: "You can now enter new client information below.",
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -160,10 +232,10 @@ export const RentalForm = () => {
       }
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!user || !profile?.organization_id) {
         toast({
           title: "Error",
-          description: "You must be logged in",
+          description: !user ? "You must be logged in" : "Organization profile not loaded",
           variant: "destructive",
         });
         setLoading(false);
@@ -188,20 +260,26 @@ export const RentalForm = () => {
         documentImageUrl = publicUrl;
       }
 
-      // Create client
-      const { data: client, error: clientError } = await supabase
-        .from("clients")
-        .insert({
-          name: formData.name,
-          nickname: formData.nickname || null,
-          id_tin_no: formData.id_tin_no || null,
-          phone: formData.phone || null,
-          created_by: user.id,
-        })
-        .select()
-        .single();
+      // Get or Create client
+      let clientId = selectedClientId;
+      
+      if (isNewClient) {
+        const { data: client, error: clientError } = await supabase
+          .from("clients")
+          .insert({
+            name: formData.name,
+            nickname: formData.nickname || null,
+            id_tin_no: formData.id_tin_no || null,
+            phone: formData.phone || null,
+            created_by: user.id,
+            organization_id: profile.organization_id // Explicitly set it
+          })
+          .select()
+          .single();
 
-      if (clientError) throw clientError;
+        if (clientError) throw clientError;
+        clientId = client.id;
+      }
 
       // Calculate totals
       const numScaffoldings = formData.num_scaffoldings;
@@ -217,7 +295,7 @@ export const RentalForm = () => {
       const { error: rentalError } = await supabase
         .from("rentals")
         .insert({
-          client_id: client.id,
+          client_id: clientId,
           num_scaffoldings: numScaffoldings,
           num_chopsticks: formData.num_chopsticks,
           plates: formData.plates,
@@ -245,6 +323,7 @@ export const RentalForm = () => {
           plate_number: formData.plate_number || null,
           document_image_url: documentImageUrl,
           rented_date: formData.rented_date || new Date().toISOString(),
+          billable_days: formData.billable_days,
           created_by: user.id,
         });
 
@@ -334,6 +413,102 @@ export const RentalForm = () => {
         </Card>
       )}
 
+      <Card className="border-emerald-100 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <Users className="h-5 w-5 text-emerald-600" />
+            Client Selection
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex p-1 bg-slate-100 rounded-xl w-fit">
+            <Button
+              type="button"
+              variant={isNewClient ? "ghost" : "secondary"}
+              size="sm"
+              onClick={() => setIsNewClient(false)}
+              className={cn(
+                "rounded-lg px-4 transition-all",
+                !isNewClient ? "bg-white shadow-sm text-emerald-600 font-bold" : "text-slate-500"
+              )}
+            >
+              Existing Client
+            </Button>
+            <Button
+              type="button"
+              variant={isNewClient ? "secondary" : "ghost"}
+              size="sm"
+              onClick={handleToggleNewClient}
+              className={cn(
+                "rounded-lg px-4 transition-all",
+                isNewClient ? "bg-white shadow-sm text-emerald-600 font-bold" : "text-slate-500"
+              )}
+            >
+              New Client
+            </Button>
+          </div>
+
+          {!isNewClient && (
+            <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-300">
+              <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Search Clients</Label>
+              <Popover open={openClientSelect} onOpenChange={setOpenClientSelect}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openClientSelect}
+                    className="w-full justify-between bg-white border-slate-200 h-12 rounded-xl shadow-sm hover:border-emerald-200 transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Search className="h-4 w-4 text-slate-400" />
+                      {selectedClientId
+                        ? clients.find((c) => c.id === selectedClientId)?.name
+                        : "Search by name, phone or TIN..."}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0 shadow-2xl border-emerald-50 rounded-2xl overflow-hidden" align="start">
+                  <Command className="rounded-none">
+                    <CommandInput placeholder="Type to search..." className="h-12 border-none focus:ring-0" />
+                    <CommandList className="max-h-[300px]">
+                      <CommandEmpty className="py-6 text-sm text-slate-500 text-center">No clients found.</CommandEmpty>
+                      <CommandGroup>
+                        {clients.map((client) => (
+                          <CommandItem
+                            key={client.id}
+                            value={`${client.name} ${client.phone} ${client.nickname || ""}`}
+                            onSelect={() => handleSelectClient(client.id)}
+                            className="py-3 px-4 aria-selected:bg-emerald-50 cursor-pointer"
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-900">{client.name}</span>
+                                <span className="text-[10px] text-slate-500 font-medium">{client.phone} • {client.id_tin_no}</span>
+                              </div>
+                              {selectedClientId === client.id && <Check className="h-4 w-4 text-emerald-600" />}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
+          {isNewClient && (
+            <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100/50 animate-in fade-in slide-in-from-top-1 duration-300">
+              <p className="text-xs text-emerald-700 font-medium flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Creating a new client profile. Fill in the details below.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Client Information</CardTitle>
@@ -344,6 +519,8 @@ export const RentalForm = () => {
             <Input
               id="name"
               required
+              readOnly={!isNewClient}
+              className={!isNewClient ? "bg-muted" : ""}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
@@ -352,6 +529,8 @@ export const RentalForm = () => {
             <Label htmlFor="nickname">Nickname</Label>
             <Input
               id="nickname"
+              readOnly={!isNewClient}
+              className={!isNewClient ? "bg-muted" : ""}
               value={formData.nickname}
               onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
             />
@@ -361,6 +540,8 @@ export const RentalForm = () => {
             <Input
               id="id_tin_no"
               required={!uploadedImage}
+              readOnly={!isNewClient}
+              className={!isNewClient ? "bg-muted" : ""}
               value={formData.id_tin_no}
               onChange={(e) => setFormData({ ...formData, id_tin_no: e.target.value })}
             />
@@ -371,6 +552,8 @@ export const RentalForm = () => {
               id="phone"
               required={!uploadedImage}
               maxLength={10}
+              readOnly={!isNewClient}
+              className={!isNewClient ? "bg-muted" : ""}
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             />
@@ -461,6 +644,35 @@ export const RentalForm = () => {
               value={formData.paid_days}
               onChange={(e) => setFormData({ ...formData, paid_days: parseInt(e.target.value) || 0 })}
             />
+          </div>
+          <div className="md:col-span-3 space-y-3">
+            <Label>Billable Days (Select days the client pays for)</Label>
+            <div className="flex flex-wrap gap-4 p-4 bg-muted/20 rounded-xl">
+              {DAYS_OF_WEEK.map((day) => (
+                <label key={day} className="flex items-center gap-2 cursor-pointer group">
+                  <div 
+                    className={cn(
+                      "h-5 w-5 rounded border-2 transition-all flex items-center justify-center",
+                      formData.billable_days.includes(day) 
+                        ? "bg-[#0F172A] border-[#0F172A] text-white" 
+                        : "border-slate-300 group-hover:border-slate-400 bg-white"
+                    )}
+                    onClick={() => toggleBillableDay(day)}
+                  >
+                    {formData.billable_days.includes(day) && <Check className="h-3.5 w-3.5" />}
+                  </div>
+                  <span className={cn(
+                    "text-sm font-medium transition-colors",
+                    formData.billable_days.includes(day) ? "text-slate-900" : "text-slate-500"
+                  )}>
+                    {day.slice(0, 3)}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground italic">
+              * The daily rate will only increment on the days selected above.
+            </p>
           </div>
         </CardContent>
       </Card>

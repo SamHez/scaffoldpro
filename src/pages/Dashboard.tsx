@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Package, ArrowLeft, AlertCircle, Search, FileText, Trash2, Warehouse, Layers, CheckCircle2, Plus } from "lucide-react";
+import { Package, Pencil, ArrowLeft, AlertCircle, Search, FileText, Trash2, Warehouse, Layers, CheckCircle2, Plus } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -83,7 +83,9 @@ const KPICard = ({ title, value, icon: Icon, color, subtext, editable, onUpdate 
       <div className="space-y-1">
         <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold tracking-tight">{value}</span>
+          <span className="text-2xl font-bold tracking-tight">
+            {title.toLowerCase().includes('demand') ? formatCurrency(value) : value.toLocaleString()}
+          </span>
           <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{subtext}</span>
         </div>
       </div>
@@ -98,11 +100,50 @@ const getRentalStatus = (rental: any) => {
   const expectedDays = rental.expected_days || 0;
   const today = new Date();
   const daysPassed = Math.floor((today.getTime() - rentedDate.getTime()) / (1000 * 60 * 60 * 24));
-  
+
   const isLate = daysPassed > expectedDays;
   const hasBalance = (rental.balance_due || 0) > 0;
 
   return { isLate, hasBalance };
+};
+
+const calculateBillableDaysPassed = (startDate: string, endDate: string | null, billableDays: string[] | null) => {
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0); // Start of day
+  const end = endDate ? new Date(endDate) : new Date();
+  end.setHours(23, 59, 59, 999); // End of day
+
+  // If no billable days specified, default to all 7
+  const activeDays = billableDays && billableDays.length > 0
+    ? billableDays
+    : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const billableIndices = activeDays.map(d => dayNames.indexOf(d));
+
+  let count = 0;
+  let current = new Date(start);
+  while (current <= end) {
+    if (billableIndices.includes(current.getDay())) {
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+};
+
+const getDynamicBalance = (rental: any) => {
+  const billableDaysPassed = calculateBillableDaysPassed(
+    rental.rented_date,
+    rental.returned_date,
+    rental.billable_days
+  );
+
+  const dailyRate = (rental.num_scaffoldings || 0) * (rental.price_per_scaffolding || 0);
+  const totalCostToDate = dailyRate * billableDaysPassed;
+  const balance = totalCostToDate - (rental.total_paid || 0);
+
+  return Math.max(0, balance);
 };
 
 interface RentalCardProps {
@@ -138,158 +179,175 @@ const RentalCard = ({
   setSelectedRentalForDetails,
   onEdit,
 }: RentalCardProps) => {
-  const { isLate, hasBalance } = getRentalStatus(rental);
-  const overdue = isLate;
-  const hasPartialReturn = (rental.returned_num_scaffoldings || 0) > 0 ||
-    (rental.returned_num_chopsticks || 0) > 0 ||
-    (rental.returned_plates || 0) > 0;
+  const status = getRentalStatus(rental);
+  const currentBalance = getDynamicBalance(rental);
+  const dailyRate = (rental.num_scaffoldings || 0) * (rental.price_per_scaffolding || 0);
+  const isPartial = 
+    (rental.returned_num_scaffoldings > 0) || 
+    (rental.returned_num_chopsticks > 0) || 
+    (rental.returned_plates > 0) || 
+    (rental.returned_timbers > 0) || 
+    (rental.returned_connectors > 0) || 
+    (rental.returned_legs > 0) || 
+    (rental.returned_ladders > 0) || 
+    (rental.returned_joints > 0) || 
+    (rental.returned_wheels > 0) || 
+    (rental.returned_tubes_6m > 0) || 
+    (rental.returned_tubes_4m > 0) || 
+    (rental.returned_tubes_3m > 0) || 
+    (rental.returned_tubes_1m > 0);
 
   return (
-    <Card className={cn("transition-all duration-200", overdue ? "border-destructive border-2 bg-destructive/5" : "border-sidebar-border shadow-sm")}>
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-4">
+    <Card className={cn(
+      "overflow-hidden transition-all duration-300 relative bg-white border-2",
+      status.isLate 
+        ? "border-red-500 bg-gradient-to-br from-red-50/40 to-white" 
+        : "border-slate-100 hover:border-slate-300 shadow-sm hover:shadow-md"
+    )}>
+      <CardHeader className="pb-3 pt-5 px-5">
+        <div className="flex justify-between items-start">
           <div className="space-y-1">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Package className={cn("h-5 w-5", overdue ? "text-destructive" : "text-primary")} />
-              <span className={overdue ? "text-destructive font-bold" : ""}>
+            <div className="flex items-center gap-2">
+              <Package className={cn("h-4 w-4", status.isLate ? "text-red-500" : "text-[#0F172A]")} />
+              <h3 className="font-black text-lg text-slate-900 truncate max-w-[200px]">
                 {rental.clients?.nickname || rental.clients?.name || "Client"}
-              </span>
-              {overdue && <AlertCircle className="h-4 w-4 text-destructive fill-destructive/10" />}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              {rental.clients?.phone} • {rental.clients?.id_tin_no}
-            </p>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Badge variant={rental.status === "RENTED" ? "default" : "secondary"} className="text-[10px]">
+              </h3>
+              {status.isLate && <AlertCircle className="h-4 w-4 text-red-500 animate-pulse" />}
+            </div>
+            <div className="flex flex-col text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              <span>{rental.clients?.phone || "No phone"}</span>
+              <span className="opacity-60">{rental.clients?.id_tin_no || "No TIN"}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2.5">
+            <div className="flex items-center gap-1 p-1 bg-slate-50/50 rounded-full border border-slate-100 shadow-sm">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-slate-400 hover:text-[#0F172A] hover:bg-white hover:shadow-sm rounded-full transition-all"
+                onClick={() => {
+                  setSelectedRentalForDetails(rental);
+                  setIsDetailsDialogOpen(true);
+                }}
+                title="Details"
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+              {onEdit && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-white hover:shadow-sm rounded-full transition-all"
+                  onClick={() => onEdit(rental)}
+                  title="Edit"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-white hover:shadow-sm rounded-full transition-all"
+                onClick={() => setRentalToDelete(rental.id)}
+                title="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Badge className={cn(
+                "text-[10px] px-3 py-1 h-auto border-none font-black tracking-widest shadow-sm",
+                rental.status === "RETURNED" ? "bg-emerald-500 text-white" : "bg-slate-900 text-white"
+              )}>
                 {rental.status}
               </Badge>
-              {isLate && (
-                <Badge variant="destructive" className="animate-pulse text-[10px]">
+              {status.isLate && (
+                <Badge className="text-[10px] px-3 py-1 h-auto bg-red-500 text-white border-none font-black tracking-widest animate-pulse shadow-md shadow-red-200">
                   OVERDUE
                 </Badge>
               )}
-              {hasBalance && !isLate && (
-                <Badge variant="secondary" className="text-[10px]">
-                  UNPAID BALANCE
-                </Badge>
-              )}
-              {hasPartialReturn && (
-                <Badge variant="outline" className="text-[10px]">
-                  Partial Return
+              {isPartial && (
+                <Badge className="text-[10px] px-3 py-1 h-auto bg-blue-100 text-blue-700 border-none font-black tracking-widest">
+                  PARTIAL
                 </Badge>
               )}
             </div>
           </div>
-          <div className="flex flex-col gap-1.5 shrink-0">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 text-xs"
-              onClick={() => {
-                setSelectedRentalForDetails(rental);
-                setIsDetailsDialogOpen(true);
-              }}
-            >
-              <Search className="h-3.5 w-3.5 mr-1" />
-              Details
-            </Button>
-            {rental.status === "RENTED" && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 text-xs text-primary hover:text-primary hover:bg-primary/10"
-                onClick={() => onEdit?.(rental)}
-              >
-                <Plus className="h-3.5 w-3.5 mr-1 rotate-45" />
-                Edit
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => setRentalToDelete(rental.id)}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1" />
-              Delete
-            </Button>
-          </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 pt-2">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs border-t pt-3">
-          <div>
-            <p className="text-muted-foreground">Scaffoldings</p>
-            <p className="font-semibold">
+
+      <CardContent className="p-5 pt-0 space-y-0">
+        {/* Row 1: Equipment Breakdown */}
+        <div className="grid grid-cols-2 gap-8 py-3 border-t border-slate-100">
+          <div className="flex justify-between items-center">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Scaffoldings</span>
+            <span className="font-bold text-xs text-slate-900">
               {rental.num_scaffoldings}
               {rental.returned_num_scaffoldings > 0 && (
-                <span className="text-muted-foreground text-[10px] ml-1">
-                  ({rental.returned_num_scaffoldings} ret)
-                </span>
+                <span className="text-emerald-600 ml-1">(-{rental.returned_num_scaffoldings})</span>
               )}
-            </p>
+            </span>
           </div>
-          <div>
-            <p className="text-muted-foreground">Chopsticks</p>
-            <p className="font-semibold">
+          <div className="flex justify-between items-center">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Chopsticks</span>
+            <span className="font-bold text-xs text-slate-900">
               {rental.num_chopsticks}
               {rental.returned_num_chopsticks > 0 && (
-                <span className="text-muted-foreground text-[10px] ml-1">
-                  ({rental.returned_num_chopsticks} ret)
-                </span>
+                <span className="text-emerald-600 ml-1">(-{rental.returned_num_chopsticks})</span>
               )}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Plates</p>
-            <p className="font-semibold">
-              {rental.plates}
-              {rental.returned_plates > 0 && (
-                <span className="text-muted-foreground text-[10px] ml-1">
-                  ({rental.returned_plates} ret)
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className="border-t pt-3 grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-          <div>
-            <p className="text-muted-foreground">Price/Scaffold</p>
-            <p className="font-semibold">{formatCurrency(rental.price_per_scaffolding || 0)}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Total Paid</p>
-            <p className="font-semibold text-emerald-600">{formatCurrency(rental.total_paid || 0)}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Balance</p>
-            <p className={cn("font-semibold", (rental.balance_due || 0) > 0 ? "text-destructive" : "text-emerald-600")}>
-              {formatCurrency(rental.balance_due || 0)}
-            </p>
-          </div>
-        </div>
-
-        <div className="border-t pt-3 text-[10px] space-y-1 text-muted-foreground">
-          <p>
-            Vehicle: <span className="font-medium text-foreground">{rental.vehicle_type}</span>
-            {rental.plate_number && ` • ${rental.plate_number}`}
-          </p>
-          <p>
-            Rented: <span className="font-medium text-foreground">
-              {format(new Date(rental.rented_date), "PP")}
             </span>
-          </p>
+          </div>
+        </div>
+
+        {/* Row 2: Financials Summary */}
+        <div className="grid grid-cols-2 gap-8 py-3 border-t border-slate-100">
+          <div className="flex justify-between items-center">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Daily Demand</span>
+            <span className="font-bold text-xs text-slate-900">{formatCurrency(dailyRate)}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Paid</span>
+            <span className="font-bold text-xs text-emerald-600">{formatCurrency(rental.total_paid || 0)}</span>
+          </div>
+        </div>
+
+        {/* Row 3: Balance Highlight */}
+        <div className="flex justify-between items-center py-3 border-t border-slate-100 bg-slate-50/30 px-2 -mx-2">
+          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">Current Balance</span>
+          <span className={cn(
+            "text-md font-black",
+            currentBalance > 0 ? "text-red-600" : "text-emerald-600"
+          )}>
+            {formatCurrency(currentBalance)}
+          </span>
+        </div>
+
+        {/* Row 4: Logistics info */}
+        <div className="grid grid-cols-2 gap-4 py-3 border-t border-slate-100">
+          <div className="space-y-0.5">
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-[8px]">Logistics</p>
+            <p className="text-slate-700 font-bold text-[10px] truncate">
+              {rental.vehicle_type || "N/A"} {rental.plate_number ? `• ${rental.plate_number}` : ""}
+            </p>
+          </div>
+          <div className="space-y-0.5 text-right">
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-[8px]">Rental Date</p>
+            <p className="text-slate-700 font-bold text-[10px]">
+              {format(new Date(rental.rented_date), "MMM dd, yyyy")}
+            </p>
+          </div>
         </div>
 
         {showReturnButton && (
-          <div className="flex gap-2 pt-2 border-t">
+          <div className="flex gap-4 pt-2">
             <Dialog open={isReturnDialogOpen && selectedRental?.id === rental.id} onOpenChange={setIsReturnDialogOpen}>
               <DialogTrigger asChild>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="flex-1 h-9 text-xs"
+                  className="flex-1 h-12 border-slate-200 text-[#0F172A] font-bold rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-[0.98]"
                   onClick={() => {
                     setSelectedRental(rental);
                     setIsReturnDialogOpen(true);
@@ -316,146 +374,75 @@ const RentalCard = ({
                   Partial Return
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border-none shadow-2xl">
                 <DialogHeader>
-                  <DialogTitle>Record Partial Return - {rental.clients?.name}</DialogTitle>
+                  <DialogTitle className="text-2xl font-bold text-slate-900">Record Partial Return - {rental.clients?.name}</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Return Date</Label>
+                <div className="space-y-8 py-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="sm:col-span-2 lg:col-span-3">
+                      <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Return Date</Label>
                       <Input
                         type="date"
+                        className="h-12 bg-slate-50 border-none rounded-xl focus-visible:ring-1"
                         value={returnData.returned_date || ""}
                         onChange={(e) => setReturnData({ ...returnData, returned_date: e.target.value })}
                       />
                     </div>
-                    <div>
-                      <Label>Returned Scaffoldings (of {rental.num_scaffoldings})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_num_scaffoldings || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_num_scaffoldings: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Chopsticks (of {rental.num_chopsticks})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_num_chopsticks || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_num_chopsticks: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Plates (of {rental.plates})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_plates || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_plates: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Timbers (of {rental.timbers || 0})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_timbers || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_timbers: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Connectors (of {rental.connectors || 0})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_connectors || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_connectors: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Legs (of {rental.legs || 0})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_legs || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_legs: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Ladders (of {rental.ladders || 0})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_ladders || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_ladders: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Joints (of {rental.joints || 0})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_joints || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_joints: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Wheels (of {rental.wheels || 0})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_wheels || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_wheels: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Tubes 6m (of {rental.tubes_6m || 0})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_tubes_6m || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_tubes_6m: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Tubes 4m (of {rental.tubes_4m || 0})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_tubes_4m || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_tubes_4m: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Tubes 3m (of {rental.tubes_3m || 0})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_tubes_3m || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_tubes_3m: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Returned Tubes 1m (of {rental.tubes_1m || 0})</Label>
-                      <Input
-                        type="number"
-                        value={returnData.returned_tubes_1m || 0}
-                        onChange={(e) => setReturnData({ ...returnData, returned_tubes_1m: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
+                    {[
+                      { key: "returned_num_scaffoldings", label: "Scaffoldings", max: rental.num_scaffoldings },
+                      { key: "returned_num_chopsticks", label: "Chopsticks", max: rental.num_chopsticks },
+                      { key: "returned_plates", label: "Plates", max: rental.plates },
+                      { key: "returned_timbers", label: "Timbers", max: rental.timbers },
+                      { key: "returned_connectors", label: "Connectors", max: rental.connectors },
+                      { key: "returned_legs", label: "Legs", max: rental.legs },
+                      { key: "returned_ladders", label: "Ladders", max: rental.ladders },
+                      { key: "returned_joints", label: "Joints", max: rental.joints },
+                      { key: "returned_wheels", label: "Wheels", max: rental.wheels },
+                      { key: "returned_tubes_6m", label: "Tubes 6m", max: rental.tubes_6m },
+                      { key: "returned_tubes_4m", label: "Tubes 4m", max: rental.tubes_4m },
+                      { key: "returned_tubes_3m", label: "Tubes 3m", max: rental.tubes_3m },
+                      { key: "returned_tubes_1m", label: "Tubes 1m", max: rental.tubes_1m },
+                    ].map((item) => (
+                      <div key={item.key} className="space-y-2">
+                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.label} (Max: {item.max})</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max={item.max}
+                          className="h-12 bg-slate-50 border-none rounded-xl focus-visible:ring-1 font-bold"
+                          value={returnData[item.key] || 0}
+                          onChange={(e) => setReturnData({ ...returnData, [item.key]: parseInt(e.target.value) || 0 })}
+                        />
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-4">
-                    <div>
-                      <Label>Total Paid (FRW)</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-8 border-t border-slate-100">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Paid (FRW)</Label>
                       <Input
                         type="number"
+                        className="h-12 bg-slate-50 border-none rounded-xl focus-visible:ring-1 font-bold text-emerald-600"
                         value={returnData.total_paid || 0}
                         onChange={(e) => setReturnData({ ...returnData, total_paid: parseFloat(e.target.value) || 0 })}
                       />
                     </div>
-                    <div>
-                      <Label>Balance Due (FRW)</Label>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Balance Due (FRW)</Label>
                       <Input
                         type="number"
+                        className="h-12 bg-slate-50 border-none rounded-xl focus-visible:ring-1 font-bold text-red-600"
                         value={returnData.balance_due || 0}
                         onChange={(e) => setReturnData({ ...returnData, balance_due: parseFloat(e.target.value) || 0 })}
                       />
                     </div>
                   </div>
 
-                  <Button onClick={handlePartialReturn} className="w-full">
+                  <Button
+                    onClick={handlePartialReturn}
+                    className="w-full bg-[#0F172A] hover:bg-slate-800 text-white rounded-2xl h-14 font-bold text-lg shadow-lg shadow-slate-200 transition-all active:scale-[0.98]"
+                  >
                     Update Partial Return
                   </Button>
                 </div>
@@ -463,7 +450,7 @@ const RentalCard = ({
             </Dialog>
             <Button
               size="sm"
-              className="flex-1 h-9 text-xs"
+              className="flex-1 h-12 bg-[#0F172A] hover:bg-slate-800 text-white font-bold rounded-2xl shadow-lg shadow-slate-200 transition-all active:scale-[0.98]"
               onClick={() => handleReturnRental(rental.id)}
             >
               Mark Full Return
@@ -493,8 +480,9 @@ const Dashboard = () => {
   const { toast } = useToast();
 
   const fetchInventory = React.useCallback(async () => {
-    const { data, error } = await supabase
-      .from("inventory")
+    if (!profile?.organization_id) return;
+    const { data, error } = await (supabase
+      .from("inventory") as any)
       .select("*")
       .eq("organization_id", profile?.organization_id)
       .order("item_name");
@@ -507,9 +495,10 @@ const Dashboard = () => {
   }, [profile?.organization_id]);
 
   const fetchRentals = React.useCallback(async () => {
+    if (!profile?.organization_id) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("rentals")
+    const { data, error } = await (supabase
+      .from("rentals") as any)
       .select(`
         *,
         clients (*),
@@ -622,8 +611,8 @@ const Dashboard = () => {
         (returnData.returned_tubes_3m || 0) >= (selectedRental.tubes_3m || 0) &&
         (returnData.returned_tubes_1m || 0) >= (selectedRental.tubes_1m || 0);
 
-      const { error } = await supabase
-        .from("rentals")
+      const { error } = await (supabase
+        .from("rentals") as any)
         .update({
           returned_num_scaffoldings: returnData.returned_num_scaffoldings || 0,
           returned_num_chopsticks: returnData.returned_num_chopsticks || 0,
@@ -674,8 +663,8 @@ const Dashboard = () => {
     if (isNaN(stock)) return;
 
     // Use upsert to create the record if it doesn't exist
-    const { error } = await supabase
-      .from("inventory")
+    const { error } = await (supabase
+      .from("inventory") as any)
       .upsert({
         item_name: "Scaffoldings",
         total_stock: stock,
@@ -716,16 +705,47 @@ const Dashboard = () => {
   const returnedItems = filteredRentals.filter((r) => r.status === "RETURNED");
   const scaffoldStock = inventory.find(i => i.item_name === "Scaffoldings") || { total_stock: 0, available_stock: 0 };
 
-  // Calculate currently rented: sum of (total - returned) for all NON-returned rentals
-  const rentedScaffoldings = rentals
-    .filter(r => r.status !== "RETURNED")
-    .reduce((acc, r) => acc + (r.num_scaffoldings - (r.returned_num_scaffoldings || 0)), 0);
+  // Helper to calculate total items out across all rentals
+  const getCurrentlyRented = (items: any[], field: string, returnedField: string) => {
+    return items.reduce((acc, r) => {
+      const rented = (r[field] || 0) - (r[returnedField] || 0);
+      return acc + Math.max(0, rented);
+    }, 0);
+  };
 
-  const availableInStock = Math.max(0, scaffoldStock.total_stock - rentedScaffoldings);
+  // Filter active rentals to match the 'Rented' tab
+  const activeRentals = rentals.filter(r => r.status === "RENTED");
+
+  // Calculate total, returned, and net for active rentals
+  const totalScaffoldingInActive = activeRentals.reduce((acc, r) => acc + (r.num_scaffoldings || 0), 0);
+  const returnedScaffoldingInActive = activeRentals.reduce((acc, r) => acc + (r.returned_num_scaffoldings || 0), 0);
+  const netScaffoldingsOut = totalScaffoldingInActive - returnedScaffoldingInActive;
+
+  // Other equipment (net) for active rentals only
+  const rentedChopsticks = getCurrentlyRented(activeRentals, "num_chopsticks", "returned_num_chopsticks");
+  const rentedPlates = getCurrentlyRented(activeRentals, "plates", "returned_plates");
+  const rentedTimbers = getCurrentlyRented(activeRentals, "timbers", "returned_timbers");
+  const rentedConnectors = getCurrentlyRented(activeRentals, "connectors", "returned_connectors");
+  const rentedLegs = getCurrentlyRented(activeRentals, "legs", "returned_legs");
+  const rentedLadders = getCurrentlyRented(activeRentals, "ladders", "returned_ladders");
+  const rentedJoints = getCurrentlyRented(activeRentals, "joints", "returned_joints");
+  const rentedWheels = getCurrentlyRented(activeRentals, "wheels", "returned_wheels");
+  const rentedTubes6m = getCurrentlyRented(activeRentals, "tubes_6m", "returned_tubes_6m");
+  const rentedTubes4m = getCurrentlyRented(activeRentals, "tubes_4m", "returned_tubes_4m");
+  const rentedTubes3m = getCurrentlyRented(activeRentals, "tubes_3m", "returned_tubes_3m");
+  const rentedTubes1m = getCurrentlyRented(activeRentals, "tubes_1m", "returned_tubes_1m");
+
+  // Inventory available is based on what's physically out (net)
+  const availableInStock = Math.max(0, (scaffoldStock.total_stock || 0) - netScaffoldingsOut);
+
+  // Financial Demand Calculation (Sum of all dynamic balances for active rentals)
+  const totalDemand = rentals
+    .filter(r => r.status === "RENTED")
+    .reduce((acc, r) => acc + getDynamicBalance(r), 0);
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="space-y-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
           title="Total Stock"
           value={scaffoldStock.total_stock}
@@ -737,10 +757,10 @@ const Dashboard = () => {
         />
         <KPICard
           title="Currently Rented"
-          value={rentedScaffoldings}
+          value={netScaffoldingsOut}
           icon={Layers}
           color="bg-amber-500"
-          subtext="Total scaffolding units out"
+          subtext={`${totalScaffoldingInActive} total - ${returnedScaffoldingInActive} returned`}
         />
         <KPICard
           title="Available in Stock"
@@ -749,7 +769,77 @@ const Dashboard = () => {
           color="bg-emerald-500"
           subtext="Ready for new rentals"
         />
+        <KPICard
+          title="Total Demand Today"
+          value={Math.round(totalDemand)}
+          icon={FileText}
+          color="bg-indigo-500"
+          subtext=""
+        />
       </div>
+
+      <Card className="bg-white/40 backdrop-blur-sm border-none shadow-sm overflow-hidden hidden">
+        <div className="h-1 w-full bg-amber-500/20" />
+        <CardHeader className="py-3 px-6">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Layers className="h-4 w-4 text-amber-500" />
+            Active Equipment Breakdown
+            <span className="text-[10px] font-normal text-muted-foreground ml-2">(Total items currently with clients)</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-6 pb-6 pt-0">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-8 gap-y-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Chopsticks</p>
+              <p className="text-xl font-bold text-foreground">{rentedChopsticks}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Plates</p>
+              <p className="text-xl font-bold text-foreground">{rentedPlates}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Timbers</p>
+              <p className="text-xl font-bold text-foreground">{rentedTimbers}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Connectors</p>
+              <p className="text-xl font-bold text-foreground">{rentedConnectors}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Legs</p>
+              <p className="text-xl font-bold text-foreground">{rentedLegs}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Wheels</p>
+              <p className="text-xl font-bold text-foreground">{rentedWheels}</p>
+            </div>
+            <div className="sm:hidden md:block">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Ladders</p>
+              <p className="text-xl font-bold text-foreground">{rentedLadders}</p>
+            </div>
+            <div className="sm:hidden md:block">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Joints</p>
+              <p className="text-xl font-bold text-foreground">{rentedJoints}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Tubes 6m</p>
+              <p className="text-xl font-bold text-foreground">{rentedTubes6m}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Tubes 4m</p>
+              <p className="text-xl font-bold text-foreground">{rentedTubes4m}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Tubes 3m</p>
+              <p className="text-xl font-bold text-foreground">{rentedTubes3m}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Tubes 1m</p>
+              <p className="text-xl font-bold text-foreground">{rentedTubes1m}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="block md:hidden mt-4">
         <Input
@@ -788,7 +878,7 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2">
               {rentedItems.map((rental) => (
                 <RentalCard
                   key={rental.id}
@@ -831,7 +921,7 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2">
               {returnedItems.map((rental) => (
                 <RentalCard
                   key={rental.id}
