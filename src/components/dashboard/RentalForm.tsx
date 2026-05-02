@@ -76,7 +76,7 @@ export const RentalForm = () => {
           const { data: clientsData } = await supabase
             .from("clients")
             .select("*")
-            .eq("organization_id", profileData.organization_id)
+            .eq("organization_id", (profileData as any).organization_id)
             .order("name");
           setClients(clientsData || []);
         }
@@ -242,6 +242,8 @@ export const RentalForm = () => {
         return;
       }
 
+      const organizationId = profile.organization_id;
+
       // Upload image if present
       let documentImageUrl = null;
       if (uploadedImage) {
@@ -272,7 +274,7 @@ export const RentalForm = () => {
             id_tin_no: formData.id_tin_no || null,
             phone: formData.phone || null,
             created_by: user.id,
-            organization_id: profile.organization_id // Explicitly set it
+            organization_id: organizationId
           })
           .select()
           .single();
@@ -334,7 +336,7 @@ export const RentalForm = () => {
         .from("inventory")
         .select("available_stock")
         .eq("item_name", "Scaffoldings")
-        .eq("organization_id", profile.organization_id)
+        .eq("organization_id", organizationId)
         .maybeSingle();
 
       if (currentInventory) {
@@ -344,7 +346,7 @@ export const RentalForm = () => {
             available_stock: Math.max(0, currentInventory.available_stock - numScaffoldings) 
           })
           .eq("item_name", "Scaffoldings")
-          .eq("organization_id", profile.organization_id);
+          .eq("organization_id", organizationId);
       }
 
       toast({
