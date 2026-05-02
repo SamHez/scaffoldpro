@@ -73,8 +73,7 @@ export const RentalForm = () => {
           setProfile(profileData);
           
           // Fetch clients for this organization
-          const { data: clientsData } = await supabase
-            .from("clients")
+          const { data: clientsData } = await (supabase.from("clients") as any)
             .select("*")
             .eq("organization_id", (profileData as any).organization_id)
             .order("name");
@@ -266,8 +265,7 @@ export const RentalForm = () => {
       let clientId = selectedClientId;
       
       if (isNewClient) {
-        const { data: client, error: clientError } = await supabase
-          .from("clients")
+        const { data: client, error: clientError } = await (supabase.from("clients") as any)
           .insert({
             name: formData.name,
             nickname: formData.nickname || null,
@@ -332,16 +330,14 @@ export const RentalForm = () => {
       if (rentalError) throw rentalError;
 
       // Deduct from inventory
-      const { data: currentInventory } = await supabase
-        .from("inventory")
+      const { data: currentInventory } = await (supabase.from("inventory") as any)
         .select("available_stock")
         .eq("item_name", "Scaffoldings")
         .eq("organization_id", organizationId)
         .maybeSingle();
 
       if (currentInventory) {
-        await supabase
-          .from("inventory")
+        await (supabase.from("inventory") as any)
           .update({ 
             available_stock: Math.max(0, currentInventory.available_stock - numScaffoldings) 
           })
