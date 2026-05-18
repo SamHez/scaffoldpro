@@ -204,28 +204,28 @@ const RentalCard = ({
         ? "border-red-500 bg-gradient-to-br from-red-50/40 to-white" 
         : "border-slate-100 hover:border-slate-300 shadow-sm hover:shadow-md"
     )}>
-      <CardHeader className="pb-3 pt-5 px-5">
-        <div className="flex justify-between items-start">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Package className={cn("h-4 w-4", status.isLate ? "text-red-500" : "text-[#0F172A]")} />
-              <h3 className="font-black text-lg text-slate-900 truncate max-w-[200px]">
+      <CardHeader className="px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex min-w-0 items-start gap-2">
+              <Package className={cn("mt-1 h-4 w-4 shrink-0", status.isLate ? "text-red-500" : "text-[#0F172A]")} />
+              <h3 className="min-w-0 flex-1 break-words text-lg font-black leading-tight text-slate-900 sm:text-xl">
                 {rental.clients?.nickname || rental.clients?.name || "Client"}
               </h3>
-              {status.isLate && <AlertCircle className="h-4 w-4 text-red-500 animate-pulse" />}
+              {status.isLate && <AlertCircle className="mt-1 h-4 w-4 shrink-0 animate-pulse text-red-500" />}
             </div>
-            <div className="flex flex-col text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+            <div className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-400 sm:text-[11px]">
               <span>{rental.clients?.phone || "No phone"}</span>
               <span className="opacity-60">{rental.clients?.id_tin_no || "No TIN"}</span>
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2.5">
-            <div className="flex items-center gap-1 p-1 bg-slate-50/50 rounded-full border border-slate-100 shadow-sm">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:max-w-[50%] sm:items-end">
+            <div className="flex w-full items-center justify-between gap-1 rounded-2xl border border-slate-100 bg-slate-50/50 p-1 shadow-sm sm:w-auto sm:justify-end sm:rounded-full">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-slate-400 hover:text-[#0F172A] hover:bg-white hover:shadow-sm rounded-full transition-all"
+                className="h-8 w-8 shrink-0 rounded-full text-slate-400 transition-all hover:bg-white hover:text-[#0F172A] hover:shadow-sm"
                 onClick={() => {
                   setSelectedRentalForDetails(rental);
                   setIsDetailsDialogOpen(true);
@@ -238,7 +238,7 @@ const RentalCard = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-white hover:shadow-sm rounded-full transition-all"
+                  className="h-8 w-8 shrink-0 rounded-full text-slate-400 transition-all hover:bg-white hover:text-emerald-600 hover:shadow-sm"
                   onClick={() => onEdit(rental)}
                   title="Edit"
                 >
@@ -248,7 +248,7 @@ const RentalCard = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-white hover:shadow-sm rounded-full transition-all"
+                className="h-8 w-8 shrink-0 rounded-full text-slate-400 transition-all hover:bg-white hover:text-red-600 hover:shadow-sm"
                 onClick={() => setRentalToDelete(rental.id)}
                 title="Delete"
               >
@@ -256,20 +256,20 @@ const RentalCard = ({
               </Button>
             </div>
 
-            <div className="flex gap-2 justify-end">
+            <div className="flex flex-wrap gap-2 sm:justify-end">
               <Badge className={cn(
-                "text-[10px] px-3 py-1 h-auto border-none font-black tracking-widest shadow-sm",
+                "h-auto whitespace-nowrap border-none px-3 py-1 text-[10px] font-black tracking-widest shadow-sm",
                 rental.status === "RETURNED" ? "bg-emerald-500 text-white" : "bg-slate-900 text-white"
               )}>
                 {rental.status}
               </Badge>
               {status.isLate && (
-                <Badge className="text-[10px] px-3 py-1 h-auto bg-red-500 text-white border-none font-black tracking-widest animate-pulse shadow-md shadow-red-200">
+                <Badge className="h-auto whitespace-nowrap border-none bg-red-500 px-3 py-1 text-[10px] font-black tracking-widest text-white shadow-md shadow-red-200 animate-pulse">
                   OVERDUE
                 </Badge>
               )}
               {isPartial && (
-                <Badge className="text-[10px] px-3 py-1 h-auto bg-blue-100 text-blue-700 border-none font-black tracking-widest">
+                <Badge className="h-auto whitespace-nowrap border-none bg-blue-100 px-3 py-1 text-[10px] font-black tracking-widest text-blue-700">
                   PARTIAL
                 </Badge>
               )}
@@ -278,21 +278,21 @@ const RentalCard = ({
         </div>
       </CardHeader>
 
-      <CardContent className="p-5 pt-0 space-y-0">
+      <CardContent className="space-y-0 p-4 pt-0 sm:p-5 sm:pt-0">
         {/* Row 1: Equipment Breakdown */}
-        <div className="grid grid-cols-2 gap-8 py-3 border-t border-slate-100">
-          <div className="flex justify-between items-center">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Scaffoldings</span>
-            <span className="font-bold text-xs text-slate-900">
+        <div className="grid grid-cols-1 gap-3 border-t border-slate-100 py-3 sm:grid-cols-2 sm:gap-8">
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50/70 px-3 py-2 sm:rounded-none sm:bg-transparent sm:px-0 sm:py-0">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 sm:text-[10px]">Scaffoldings</span>
+            <span className="shrink-0 text-xs font-bold text-slate-900 sm:text-sm">
               {rental.num_scaffoldings}
               {rental.returned_num_scaffoldings > 0 && (
                 <span className="text-emerald-600 ml-1">(-{rental.returned_num_scaffoldings})</span>
               )}
             </span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Chopsticks</span>
-            <span className="font-bold text-xs text-slate-900">
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50/70 px-3 py-2 sm:rounded-none sm:bg-transparent sm:px-0 sm:py-0">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 sm:text-[10px]">Chopsticks</span>
+            <span className="shrink-0 text-xs font-bold text-slate-900 sm:text-sm">
               {rental.num_chopsticks}
               {rental.returned_num_chopsticks > 0 && (
                 <span className="text-emerald-600 ml-1">(-{rental.returned_num_chopsticks})</span>
@@ -302,22 +302,22 @@ const RentalCard = ({
         </div>
 
         {/* Row 2: Financials Summary */}
-        <div className="grid grid-cols-2 gap-8 py-3 border-t border-slate-100">
-          <div className="flex justify-between items-center">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Daily Demand</span>
-            <span className="font-bold text-xs text-slate-900">{formatCurrency(dailyRate)}</span>
+        <div className="grid grid-cols-1 gap-3 border-t border-slate-100 py-3 sm:grid-cols-2 sm:gap-8">
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50/70 px-3 py-2 sm:rounded-none sm:bg-transparent sm:px-0 sm:py-0">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 sm:text-[10px]">Daily Demand</span>
+            <span className="shrink-0 text-xs font-bold text-slate-900 sm:text-sm">{formatCurrency(dailyRate)}</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Paid</span>
-            <span className="font-bold text-xs text-emerald-600">{formatCurrency(rental.total_paid || 0)}</span>
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50/70 px-3 py-2 sm:rounded-none sm:bg-transparent sm:px-0 sm:py-0">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 sm:text-[10px]">Paid</span>
+            <span className="shrink-0 text-xs font-bold text-emerald-600 sm:text-sm">{formatCurrency(rental.total_paid || 0)}</span>
           </div>
         </div>
 
         {/* Row 3: Balance Highlight */}
-        <div className="flex justify-between items-center py-3 border-t border-slate-100 bg-slate-50/30 px-2 -mx-2">
-          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">Current Balance</span>
+        <div className="mx-0 flex flex-col gap-2 border-t border-slate-100 bg-slate-50/50 px-3 py-3 sm:-mx-2 sm:flex-row sm:items-center sm:justify-between sm:px-2">
+          <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 sm:text-[10px]">Current Balance</span>
           <span className={cn(
-            "text-md font-black",
+            "break-words text-xl font-black leading-tight sm:text-right",
             currentBalance > 0 ? "text-red-600" : "text-emerald-600"
           )}>
             {formatCurrency(currentBalance)}
@@ -325,29 +325,29 @@ const RentalCard = ({
         </div>
 
         {/* Row 4: Logistics info */}
-        <div className="grid grid-cols-2 gap-4 py-3 border-t border-slate-100">
+        <div className="grid grid-cols-1 gap-3 border-t border-slate-100 py-3 sm:grid-cols-2 sm:gap-4">
           <div className="space-y-0.5">
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-[8px]">Logistics</p>
-            <p className="text-slate-700 font-bold text-[10px] truncate">
+            <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 sm:text-[9px]">Logistics</p>
+            <p className="break-words text-[10px] font-bold text-slate-700 sm:text-xs">
               {rental.vehicle_type || "N/A"} {rental.plate_number ? `• ${rental.plate_number}` : ""}
             </p>
           </div>
-          <div className="space-y-0.5 text-right">
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-[8px]">Rental Date</p>
-            <p className="text-slate-700 font-bold text-[10px]">
+          <div className="space-y-0.5 sm:text-right">
+            <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 sm:text-[9px]">Rental Date</p>
+            <p className="text-[10px] font-bold text-slate-700 sm:text-xs">
               {format(new Date(rental.rented_date), "MMM dd, yyyy")}
             </p>
           </div>
         </div>
 
         {showReturnButton && (
-          <div className="flex gap-4 pt-2">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:gap-4">
             <Dialog open={isReturnDialogOpen && selectedRental?.id === rental.id} onOpenChange={setIsReturnDialogOpen}>
               <DialogTrigger asChild>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="flex-1 h-12 border-slate-200 text-[#0F172A] font-bold rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-[0.98]"
+                  className="h-12 w-full flex-1 rounded-2xl border-slate-200 font-bold text-[#0F172A] transition-all hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]"
                   onClick={() => {
                     setSelectedRental(rental);
                     setIsReturnDialogOpen(true);
@@ -450,7 +450,7 @@ const RentalCard = ({
             </Dialog>
             <Button
               size="sm"
-              className="flex-1 h-12 bg-[#0F172A] hover:bg-slate-800 text-white font-bold rounded-2xl shadow-lg shadow-slate-200 transition-all active:scale-[0.98]"
+              className="h-12 w-full flex-1 rounded-2xl bg-[#0F172A] font-bold text-white shadow-lg shadow-slate-200 transition-all hover:bg-slate-800 active:scale-[0.98]"
               onClick={() => handleReturnRental(rental.id)}
             >
               Mark Full Return
